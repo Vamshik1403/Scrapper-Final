@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+{% block topbar_badge %}Overview{% endblock %}
+
+{% block content %}
+<!-- KPI CARDS -->
+<div class="kpi-grid animate-in" id="kpi-grid">
+    <div class="kpi-card kpi-leads">
+        <div class="kpi-icon">&#x1F4CA;</div>
+        <div class="kpi-value" id="kpi-total">{{ raw_data|length if raw_data else 0 }}</div>
+        <div class="kpi-label">Total Leads</div>
+        <div class="kpi-sub">scraped from Google Maps</div>
+    </div>
+    <div class="kpi-card kpi-hot">
+        <div class="kpi-icon">&#x1F525;</div>
+        <div class="kpi-value" id="kpi-hot">{% if scored_data %}{{ scored_data|selectattr("prospect_label","equalto","HOT")|list|length }}{% else %}0{% endif %}</div>
+        <div class="kpi-label">HOT Prospects</div>
+        <div class="kpi-sub">low reviews, high opportunity</div>
+    </div>
+    <div class="kpi-card kpi-emails">
+        <div class="kpi-icon">&#x2709;</div>
+        <div class="kpi-value" id="kpi-emails">{{ emails_data|length if emails_data else 0 }}</div>
+        <div class="kpi-label">Emails Ready</div>
+        <div class="kpi-sub">personalised cold outreach</div>
+    </div>
+    <div class="kpi-card kpi-pdfs">
+        <div class="kpi-icon">&#x1F4C4;</div>
+        <div class="kpi-value" id="kpi-pdfs">{{ audit_files|length if audit_files else 0 }}</div>
+        <div class="kpi-label">PDF Audits</div>
+        <div class="kpi-sub">ready to send</div>
+    </div>
+    <div class="kpi-card kpi-gap">
+        <div class="kpi-icon">&#x26A1;</div>
+        <div class="kpi-value" id="kpi-gap">{% if competitor_data %}{{ ((competitor_data|sum(attribute='competitive_gap_score')) / competitor_data|length)|round(1) }}{% else %}0{% endif %}</div>
+        <div class="kpi-label">Avg Gap Score</div>
+        <div class="kpi-sub">out of 10</div>
+    </div>
+    <div class="kpi-card kpi-gbp">
+        <div class="kpi-icon">&#x1F310;</div>
+        <div class="kpi-value" id="kpi-gbp">{% if gbp_data %}{{ ((gbp_data|sum(attribute='gbp_score')) / gbp_data|length)|round(1) }}{% else %}0{% endif %}</div>
+        <div class="kpi-label">Avg GBP Score</div>
+        <div class="kpi-sub">out of 100</div>
+    </div>
+</div>
+
+<!-- API USAGE BADGE -->
+<div class="animate-in" style="margin-bottom:20px;">
+    <div id="api-usage-badge" style="display:inline-flex; gap:16px; padding:10px 18px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border); font-size:12px; color:var(--text-muted);">
+        <span>SerpApi: <strong id="api-serp-used" style="color:var(--text-primary);">--</strong>/<span id="api-serp-limit">100</span> used</span>
+        <span>Remaining: <strong id="api-serp-remaining" style="color:#86efac;">--</strong></span>
+        <span>OpenAI: <strong id="api-openai-used" style="color:var(--text-primary);">--</strong> calls</span>
+        <span>Keys: <strong id="api-serp-keys" style="color:var(--text-primary);">--</strong> SerpApi, <strong id="api-openai-keys" style="color:var(--text-primary);">--</strong> OpenAI</span>
+        <span>Cache: <strong id="api-cache-count" style="color:var(--text-primary);">--</strong> queries</span>
+    </div>
+</div>
+
+<!-- BEST LEADS ENGINE -->
+<div class="best-leads-card animate-in">
+    <h2>&#x1F525; Super Filter Engine — Best Leads</h2>
+    <div class="best-leads-toggles">
+        <label class="toggle-item">
+            <div class="toggle-switch active" id="bl-hot" onclick="toggleBL(this)"></div>
+            HOT Only
+        </label>
+        <label class="toggle-item">
+            <div class="toggle-switch active" id="bl-no-ads" onclick="toggleBL(this)"></div>
+            No Ads
+        </label>
+        <label class="toggle-item">
+            <div class="toggle-switch active" id="bl-bad-site" onclick="toggleBL(this)"></div>
+            Bad/Basic Website
+        </label>
+        <label class="toggle-item">
+            <div class="toggle-switch active" id="bl-high-roi" onclick="toggleBL(this)"></div>
+            High ROI (&ge;30)
+        </label>
+        <label class="toggle-item">
+            <div class="toggle-switch active" id="bl-high-gap" onclick="toggleBL(this)"></div>
+            High Gap (&ge;7)
+        </label>
+    </div>
+    <div class="best-leads-actions">
+        <button class="btn btn-primary" id="btn-best-leads" onclick="generateBestLeads()" style="background:linear-gradient(135deg,#ef4444,#f97316);">
+            &#x1F525; Generate Best Leads
+        </button>
+        <a class="btn btn-csv" id="btn-dl-best" style="display:none;" onclick="downloadBestLeads()">Download Best Leads CSV</a>
+        <span class="best-leads-count" id="best-leads-count">&#x1F525; Best Leads: <span id="bl-count-num">0</span></span>
+        <span class="best-leads-loading" id="best-leads-loading"><span class="spinner"></span> Filtering...</span>
+    </div>
+    <div id="best-leads-msg"></div>
+    <div class="table-wrap" id="best-leads-table-wrap" style="display:none;">
+        <table id="best-leads-table">
+            <thead><tr><th>#</th><th>Business</th><th>City</th><th>Label</th><th>Ads</th><th>Website</th><th>ROI</th><th>Gap</th><th>Monthly Value</th><th>Email</th><th>Phone</th></tr></thead>
+            <tbody id="best-leads-tbody"></tbody>
+        </table>
+    </div>
+    <div class="empty-state" id="best-leads-empty" {% if best_leads_data %}style="display:none"{% endif %}>
+        Click "Generate Best Leads" to find your highest-quality prospects.
+    </div>
+</div>
+
+<!-- CHARTS -->
+<div class="charts-grid animate-in">
+    <div class="chart-card">
+        <h3>Prospect Breakdown</h3>
+        <div class="chart-container"><canvas id="chart-prospects"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <h3>Website Quality</h3>
+        <div class="chart-container"><canvas id="chart-websites"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <h3>Leads by City</h3>
+        <div class="chart-container"><canvas id="chart-cities"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <h3>Competitive Urgency</h3>
+        <div class="chart-container"><canvas id="chart-urgency"></canvas></div>
+    </div>
+</div>
+
+<!-- PIPELINE TRACKER -->
+<div class="pipeline-card animate-in">
+    <div class="pipeline-header">
+        <h2>Pipeline Control</h2>
+        <div class="pipeline-actions">
+            <button class="btn btn-primary" id="btn-pipeline" onclick="runPipeline()">
+                &#x25B6; Run Full Pipeline
+            </button>
+            <button class="btn btn-danger" onclick="clearOutput()">Clear All Data</button>
+            <label style="display:inline-flex; align-items:center; gap:8px; margin-left:12px; cursor:pointer; font-size:13px; color:var(--text-secondary);">
+                <div class="toggle-switch{% if smart_mode %} active{% endif %}" id="smart-mode-toggle" onclick="toggleSmartMode(this)" style="flex-shrink:0;"></div>
+                <span>Smart Mode</span>
+                <span id="smart-mode-badge" style="font-size:10px; padding:2px 8px; border-radius:10px; font-weight:700; {% if smart_mode %}background:rgba(34,197,94,0.15); color:#86efac;{% else %}background:rgba(100,116,139,0.15); color:#94a3b8;{% endif %}">{% if smart_mode %}ON{% else %}OFF{% endif %}</span>
+            </label>
+        </div>
+    </div>
+    <div class="pipeline-steps" id="pipeline-steps">
+        {% for i in range(1, 11) %}
+        <div class="pipeline-step" data-tool="tool{{ i }}" id="ps-tool{{ i }}">
+            <div class="step-circle">{{ i }}</div>
+            <div class="step-label">{{ ['Scraper','Scorer','Ads','Website','Contacts','GBP','Compete','Value','Emails','PDFs'][i-1] }}</div>
+        </div>
+        {% endfor %}
+    </div>
+    <div class="pipeline-status-bar" id="status-pipeline"></div>
+</div>
+
+<!-- SMART EXPORT -->
+<div class="smart-export-card animate-in">
+    <h2><span class="tool-num" style="background:rgba(6,182,212,0.15);color:#67e8f9;">&#x2B50;</span> Smart Export — Cross-Tool Filter</h2>
+    <div class="smart-export-grid">
+        <div class="smart-export-item">
+            <div class="smart-export-label">Prospect Label</div>
+            <select id="se-label"><option value="">Any</option><option value="HOT">HOT</option><option value="WARM">WARM</option><option value="COLD">COLD</option></select>
+        </div>
+        <div class="smart-export-item">
+            <div class="smart-export-label">Ads Running</div>
+            <select id="se-ads"><option value="">Any</option><option value="NO">No Ads</option><option value="YES">Running Ads</option></select>
+        </div>
+        <div class="smart-export-item">
+            <div class="smart-export-label">Website Quality</div>
+            <select id="se-quality"><option value="">Any</option><option value="BAD">BAD</option><option value="BASIC">BASIC</option><option value="GOOD">GOOD</option></select>
+        </div>
+        <div class="smart-export-item">
+            <div class="smart-export-label">Min Gap Score</div>
+            <select id="se-gap"><option value="">Any</option><option value="7">7+ (HIGH)</option><option value="5">5+ (MEDIUM+)</option><option value="4">4+</option></select>
+        </div>
+        <div class="smart-export-item">
+            <div class="smart-export-label">Min ROI Score</div>
+            <select id="se-roi"><option value="">Any</option><option value="30">30+ (HIGH)</option><option value="20">20+ (MEDIUM+)</option><option value="15">15+</option></select>
+        </div>
+    </div>
+    <button class="btn btn-primary" onclick="smartExport()" style="background:linear-gradient(135deg,var(--accent-purple),var(--accent-cyan));">
+        Download Smart Export CSV
+    </button>
+    <div id="smart-export-msg"></div>
+</div>
+<script type="application/json" id="chart-data-json">{{ chart_data|tojson }}</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    /* ===== API USAGE BADGE ===== */
+    (function loadApiUsage() {
+        fetch('/status').then(function(r){return r.json();}).then(function(d) {
+            if (d.api_usage) {
+                var u = d.api_usage;
+                document.getElementById('api-serp-used').textContent = u.serpapi_calls;
+                document.getElementById('api-serp-limit').textContent = u.serpapi_limit;
+                var remEl = document.getElementById('api-serp-remaining');
+                remEl.textContent = u.serpapi_remaining;
+                remEl.style.color = u.serpapi_remaining <= 10 ? '#fca5a5' : u.serpapi_remaining <= 20 ? '#fcd34d' : '#86efac';
+                document.getElementById('api-openai-used').textContent = u.openai_calls;
+                document.getElementById('api-serp-keys').textContent = u.serpapi_keys_total;
+                document.getElementById('api-openai-keys').textContent = u.openai_keys_total;
+            }
+        }).catch(function(){});
+        fetch('/cache_stats').then(function(r){return r.json();}).then(function(d) {
+            document.getElementById('api-cache-count').textContent = d.cached_queries;
+        }).catch(function(){});
+    })();
+
+    /* ===== SMART MODE TOGGLE ===== */
+    function toggleSmartMode(el) {
+        el.classList.toggle('active');
+        var enabled = el.classList.contains('active');
+        var badge = document.getElementById('smart-mode-badge');
+        badge.textContent = enabled ? 'ON' : 'OFF';
+        badge.style.background = enabled ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.15)';
+        badge.style.color = enabled ? '#86efac' : '#94a3b8';
+        fetch('/save_smart_mode', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({enabled: enabled})
+        });
+    }
+
+    /* ===== BEST LEADS ===== */
+    function toggleBL(el) { el.classList.toggle('active'); }
+    function getBLParams() {
+        return 'hot=' + (document.getElementById('bl-hot').classList.contains('active') ? '1' : '0')
+            + '&no_ads=' + (document.getElementById('bl-no-ads').classList.contains('active') ? '1' : '0')
+            + '&bad_site=' + (document.getElementById('bl-bad-site').classList.contains('active') ? '1' : '0')
+            + '&high_roi=' + (document.getElementById('bl-high-roi').classList.contains('active') ? '1' : '0')
+            + '&high_gap=' + (document.getElementById('bl-high-gap').classList.contains('active') ? '1' : '0');
+    }
+    function generateBestLeads() {
+        var btn = document.getElementById('btn-best-leads');
+        var loading = document.getElementById('best-leads-loading');
+        var countEl = document.getElementById('best-leads-count');
+        var countNum = document.getElementById('bl-count-num');
+        var dlBtn = document.getElementById('btn-dl-best');
+        var msgEl = document.getElementById('best-leads-msg');
+        var tableWrap = document.getElementById('best-leads-table-wrap');
+        var tbody = document.getElementById('best-leads-tbody');
+        var empty = document.getElementById('best-leads-empty');
+        btn.disabled = true; loading.classList.add('show');
+        countEl.classList.remove('show'); dlBtn.style.display = 'none';
+        msgEl.style.display = 'none'; tableWrap.style.display = 'none'; empty.style.display = 'none';
+        fetch('/best_leads?' + getBLParams())
+        .then(function(r){ if (!r.ok) throw new Error('Server returned ' + r.status); return r.json(); })
+        .then(function(data) {
+            loading.classList.remove('show'); btn.disabled = false;
+            if (data.status === 'error') {
+                msgEl.textContent = data.msg; msgEl.style.display = 'block';
+                msgEl.style.background = 'rgba(239,68,68,0.1)'; msgEl.style.color = '#fca5a5';
+                msgEl.style.border = '1px solid rgba(239,68,68,0.3)'; return;
+            }
+            countNum.textContent = data.count; countEl.classList.add('show');
+            if (data.count === 0) {
+                msgEl.textContent = 'No best leads found with current filters. Try disabling some toggles.';
+                msgEl.style.display = 'block'; msgEl.style.background = 'rgba(245,158,11,0.1)';
+                msgEl.style.color = '#fcd34d'; msgEl.style.border = '1px solid rgba(245,158,11,0.3)';
+                empty.style.display = 'block'; empty.textContent = 'No matching leads. Adjust your filters and try again.'; return;
+            }
+            dlBtn.style.display = 'inline-flex';
+            tbody.innerHTML = '';
+            data.preview.forEach(function(row, i) {
+                var labelCls = 'label-' + (row.prospect_label || '');
+                var qualCls = 'quality-' + (row.website_quality || '');
+                var adsClass = (row.ads_running === 'NO') ? 'ads-no' : (row.ads_running === 'YES' ? 'ads-yes' : 'ads-unknown');
+                var roiColor = (row.roi_multiple >= 30) ? '#fca5a5' : ((row.roi_multiple >= 15) ? '#fcd34d' : '#86efac');
+                var gapColor = (row.competitive_gap_score >= 7) ? '#fca5a5' : ((row.competitive_gap_score >= 4) ? '#fcd34d' : '#86efac');
+                tbody.innerHTML += '<tr><td>' + (i+1) + '</td><td>' + (row.business_name||'---') + '</td><td>' + (row.city||'---') + '</td><td><span class="label ' + labelCls + '">' + (row.prospect_label||'---') + '</span></td><td><span class="' + adsClass + '">' + (row.ads_running||'---') + '</span></td><td><span class="label ' + qualCls + '">' + (row.website_quality||'---') + '</span></td><td style="font-weight:600;color:' + roiColor + '">' + (row.roi_multiple||'---') + '/50</td><td style="font-weight:600;color:' + gapColor + '">' + (row.competitive_gap_score||'---') + '/10</td><td style="color:#86efac;font-weight:600;">$' + (row.monthly_value||0) + '/mo</td><td>' + (row.personal_email||'---') + '</td><td>' + (row.phone||'---') + '</td></tr>';
+            });
+            tableWrap.style.display = 'block';
+            if (data.count > 20) {
+                msgEl.textContent = 'Showing top 20 of ' + data.count + ' best leads. Download CSV for full list.';
+                msgEl.style.display = 'block'; msgEl.style.background = 'rgba(34,197,94,0.1)';
+                msgEl.style.color = '#86efac'; msgEl.style.border = '1px solid rgba(34,197,94,0.3)';
+            }
+        }).catch(function(err) {
+            loading.classList.remove('show'); btn.disabled = false;
+            msgEl.textContent = err.message || 'Error generating best leads. Please try again.';
+            msgEl.style.display = 'block'; msgEl.style.background = 'rgba(239,68,68,0.1)';
+            msgEl.style.color = '#fca5a5'; msgEl.style.border = '1px solid rgba(239,68,68,0.3)';
+        });
+    }
+    function downloadBestLeads() { window.location.href = '/best_leads?' + getBLParams() + '&download=1'; }
+
+    /* ===== SMART EXPORT ===== */
+    function smartExport() {
+        var label = document.getElementById('se-label').value;
+        var ads = document.getElementById('se-ads').value;
+        var quality = document.getElementById('se-quality').value;
+        var gap = document.getElementById('se-gap').value;
+        var roi = document.getElementById('se-roi').value;
+        var msgEl = document.getElementById('smart-export-msg');
+        if (!label && !ads && !quality && !gap && !roi) {
+            msgEl.textContent = 'Select at least one filter.'; msgEl.style.display = 'block';
+            msgEl.style.background = 'rgba(239,68,68,0.1)'; msgEl.style.color = '#fca5a5';
+            msgEl.style.border = '1px solid rgba(239,68,68,0.3)';
+            setTimeout(function(){ msgEl.style.display = 'none'; }, 3000); return;
+        }
+        var params = [];
+        if (label) params.push('label=' + label);
+        if (ads) params.push('ads=' + ads);
+        if (quality) params.push('quality=' + quality);
+        if (gap) params.push('gap_min=' + gap);
+        if (roi) params.push('roi_min=' + roi);
+        window.location.href = '/download_smart?' + params.join('&');
+    }
+
+    /* ===== PIPELINE ===== */
+    function runPipeline() {
+        var btn = document.getElementById('btn-pipeline');
+        btn.disabled = true; btn.innerHTML = '&#x23F3; Running...';
+        var statusEl = document.getElementById('status-pipeline');
+        statusEl.className = 'pipeline-status-bar show pipeline-status-running';
+        statusEl.textContent = 'Starting full pipeline...';
+        pipelineTools.forEach(function(t){ document.getElementById('ps-'+t).className = 'pipeline-step'; });
+        fetch('/run/pipeline', { method:'POST' })
+        .then(function(r){return r.json();})
+        .then(function(d){
+            if (d.status === 'error' || d.status === 'running') {
+                statusEl.className = 'pipeline-status-bar show pipeline-status-error';
+                statusEl.textContent = d.msg;
+                btn.disabled = false; btn.innerHTML = '&#x25B6; Run Full Pipeline'; return;
+            }
+            pollPipeline();
+        });
+    }
+    function pollPipeline() {
+        var statusEl = document.getElementById('status-pipeline');
+        var btn = document.getElementById('btn-pipeline');
+        var interval = setInterval(function(){
+            fetch('/status').then(function(r){return r.json();}).then(function(data){
+                statusEl.textContent = data.pipeline_msg;
+                pipelineTools.forEach(function(t){
+                    var stepEl = document.getElementById('ps-'+t);
+                    if (data[t] === 'done') stepEl.className = 'pipeline-step step-done';
+                    else if (data[t] === 'running') stepEl.className = 'pipeline-step step-running';
+                    else if (data[t] === 'error') stepEl.className = 'pipeline-step step-error';
+                });
+                if (data.pipeline === 'done') {
+                    clearInterval(interval);
+                    statusEl.className = 'pipeline-status-bar show pipeline-status-done';
+                    btn.disabled = false; btn.innerHTML = '&#x25B6; Run Full Pipeline';
+                    setTimeout(function(){ location.reload(); }, 1500);
+                } else if (data.pipeline === 'error') {
+                    clearInterval(interval);
+                    statusEl.className = 'pipeline-status-bar show pipeline-status-error';
+                    btn.disabled = false; btn.innerHTML = '&#x25B6; Run Full Pipeline';
+                }
+            });
+        }, 2000);
+    }
+    function clearOutput() {
+        if (!confirm('Delete all CSV/Excel files and PDFs?')) return;
+        fetch('/clear_output', { method:'POST' })
+        .then(function(r){return r.json();})
+        .then(function(d){ setTimeout(function(){ location.reload(); }, 1000); });
+    }
+
+    /* ===== AUTO-RESUME: re-attach pipeline polling if still running ===== */
+    (function resumePipeline() {
+        fetch('/status').then(function(r){return r.json();}).then(function(data){
+            if (data.pipeline === 'running') {
+                var btn = document.getElementById('btn-pipeline');
+                var statusEl = document.getElementById('status-pipeline');
+                if (btn) { btn.disabled = true; btn.innerHTML = '&#x23F3; Running...'; }
+                if (statusEl) { statusEl.className = 'pipeline-status-bar show pipeline-status-running'; statusEl.textContent = data.pipeline_msg || 'Running...'; }
+                pipelineTools.forEach(function(t){
+                    var stepEl = document.getElementById('ps-'+t);
+                    if (stepEl) {
+                        if (data[t] === 'done') stepEl.className = 'pipeline-step step-done';
+                        else if (data[t] === 'running') stepEl.className = 'pipeline-step step-running';
+                        else if (data[t] === 'error') stepEl.className = 'pipeline-step step-error';
+                    }
+                });
+                pollPipeline();
+            }
+        }).catch(function(){});
+    })();
+
+    /* ===== CHARTS ===== */
+    var chartData = JSON.parse(document.getElementById('chart-data-json').textContent);
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(30,41,59,0.5)';
+
+    new Chart(document.getElementById('chart-prospects'), {
+        type: 'doughnut',
+        data: {
+            labels: ['HOT','WARM','COLD'],
+            datasets: [{ data: [chartData.prospects.hot, chartData.prospects.warm, chartData.prospects.cold],
+            backgroundColor: ['rgba(239,68,68,0.7)','rgba(245,158,11,0.7)','rgba(59,130,246,0.7)'], borderColor: ['#ef4444','#f59e0b','#3b82f6'], borderWidth: 1 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } } } }
+    });
+
+    new Chart(document.getElementById('chart-websites'), {
+        type: 'bar',
+        data: {
+            labels: ['BAD','BASIC','GOOD'],
+            datasets: [{ label: 'Count', data: [chartData.websites.bad, chartData.websites.basic, chartData.websites.good],
+            backgroundColor: ['rgba(239,68,68,0.5)','rgba(245,158,11,0.5)','rgba(34,197,94,0.5)'], borderColor: ['#ef4444','#f59e0b','#22c55e'], borderWidth: 1, borderRadius: 6 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+
+    new Chart(document.getElementById('chart-cities'), {
+        type: 'bar',
+        data: { labels: Object.keys(chartData.cities), datasets: [{ label: 'Leads', data: Object.values(chartData.cities), backgroundColor: 'rgba(139,92,246,0.5)', borderColor: '#8b5cf6', borderWidth: 1, borderRadius: 6 }] },
+        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } }
+    });
+
+    new Chart(document.getElementById('chart-urgency'), {
+        type: 'doughnut',
+        data: {
+            labels: ['LOW','MEDIUM','HIGH'],
+            datasets: [{ data: [chartData.urgency.low, chartData.urgency.medium, chartData.urgency.high],
+            backgroundColor: ['rgba(34,197,94,0.7)','rgba(245,158,11,0.7)','rgba(239,68,68,0.7)'], borderColor: ['#22c55e','#f59e0b','#ef4444'], borderWidth: 1 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } } } }
+    });
+</script>
+{% endblock %}

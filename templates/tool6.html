@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% block title %}GBP Analyser — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Tool 6 — GBP Analyser{% endblock %}
+{% block topbar_badge %}Google Business{% endblock %}
+
+{% block content %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num">6</span> GBP Analyser</h2>
+        <div class="btn-group">
+            <button class="btn btn-green" id="btn-run-t6" onclick="runTool('tool6')">Run GBP Analyser</button>
+            {% if gbp_data %}
+            <a class="btn btn-csv" href="/download/tool6/csv">CSV</a>
+            <a class="btn btn-excel" href="/download/tool6/excel">Excel</a>
+            {% endif %}
+        </div>
+    </div>
+    {% if gbp_data %}
+    <div class="dl-filters">
+        <span class="dl-filters-label">Download by GBP Score</span>
+        <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool6&filter=poor">POOR (&lt;40)</a>
+        <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool6&filter=average">AVERAGE (40-70)</a>
+        <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool6&filter=strong">STRONG (&gt;70)</a>
+    </div>
+    {% endif %}
+    <div class="status-bar" id="status-tool6"></div>
+    {% if gbp_data %}
+    {% set poor_count = gbp_data|selectattr("gbp_label","equalto","POOR")|list|length %}
+    {% set avg_count = gbp_data|selectattr("gbp_label","equalto","AVERAGE")|list|length %}
+    {% set strong_count = gbp_data|selectattr("gbp_label","equalto","STRONG")|list|length %}
+    <div class="summary">
+        <span class="badge badge-hot">POOR: {{ poor_count }}</span>
+        <span class="badge badge-warm">AVERAGE: {{ avg_count }}</span>
+        <span class="badge badge-green">STRONG: {{ strong_count }}</span>
+        <span class="badge badge-total">Total: {{ gbp_data|length }}</span>
+    </div>
+    <div class="filter-tabs" id="gbp-filter-tabs">
+        <button class="filter-tab active" onclick="filterGbpTable('all', this)">All</button>
+        <button class="filter-tab" onclick="filterGbpTable('POOR', this)">POOR</button>
+        <button class="filter-tab" onclick="filterGbpTable('AVERAGE', this)">AVERAGE</button>
+        <button class="filter-tab" onclick="filterGbpTable('STRONG', this)">STRONG</button>
+    </div>
+    <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'gbp-table')"></div>
+    <div class="table-wrap">
+        <table id="gbp-table">
+            <thead><tr><th>#</th><th>Business</th><th>City</th><th>GBP Score</th><th>Label</th><th>Photos</th><th>Services</th><th>Desc</th><th>Hours</th><th>Posts</th><th>Reply %</th><th>Email</th><th>Phone</th></tr></thead>
+            <tbody>{% for row in gbp_data %}<tr data-gbp="{{ row.gbp_label }}">
+                <td>{{ loop.index }}</td>
+                <td>{{ row.business_name or '---' }}</td>
+                <td>{{ row.city or '---' }}</td>
+                <td>
+                    <span style="font-weight:600;">{{ row.gbp_score }}/100</span>
+                    <span class="score-bar"><span class="score-fill" data-w="{{ row.gbp_score }}" data-c="{% if row.gbp_score < 40 %}fill-red{% elif row.gbp_score <= 70 %}fill-yellow{% else %}fill-green{% endif %}"></span></span>
+                </td>
+                <td><span class="label gbp-{{ row.gbp_label }}">{{ row.gbp_label }}</span></td>
+                <td>{{ row.gbp_photos }}</td>
+                <td>{{ row.gbp_services }}</td>
+                <td class="check-{{ row.gbp_has_description|string|lower }}">{{ 'Yes' if row.gbp_has_description else 'No' }}</td>
+                <td class="check-{{ row.gbp_has_hours|string|lower }}">{{ 'Yes' if row.gbp_has_hours else 'No' }}</td>
+                <td class="check-{{ row.gbp_has_posts|string|lower }}">{{ 'Yes' if row.gbp_has_posts else 'No' }}</td>
+                <td>{{ (row.gbp_reply_rate * 100)|round|int }}%</td>
+                <td>{{ row.personal_email or '---' }}</td>
+                <td>{{ row.phone or '---' }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No GBP data yet. Run Tool 5 first, then click "Run GBP Analyser".</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterGbpTable(filter, btn) {
+    document.querySelectorAll('#gbp-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+    btn.classList.add('active');
+    document.querySelectorAll('#gbp-table tbody tr').forEach(function(row){
+        row.style.display = (filter === 'all' || row.getAttribute('data-gbp') === filter) ? '' : 'none';
+    });
+}
+document.querySelectorAll('.score-fill[data-w]').forEach(function(el){ el.style.width = el.getAttribute('data-w') + '%'; el.classList.add(el.getAttribute('data-c')); });
+</script>
+{% endblock %}

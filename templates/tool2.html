@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Review Scorer — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Tool 2 — Review Scorer{% endblock %}
+{% block topbar_badge %}Scoring{% endblock %}
+
+{% block content %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num">2</span> Review Scorer</h2>
+        <div class="btn-group">
+            <button class="btn btn-green" id="btn-run-t2" onclick="runTool('tool2')">Run Scorer</button>
+            {% if scored_data %}
+            <a class="btn btn-csv" href="/download/tool2/csv">CSV</a>
+            <a class="btn btn-excel" href="/download/tool2/excel">Excel</a>
+            {% endif %}
+        </div>
+    </div>
+    {% if scored_data %}
+    <div class="dl-filters">
+        <span class="dl-filters-label">Download Filtered</span>
+        <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool2&filter=hot">HOT CSV</a>
+        <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool2&filter=warm">WARM CSV</a>
+        <a class="btn-dl btn-dl-cold" href="/download_filtered?tool=tool2&filter=cold">COLD CSV</a>
+    </div>
+    {% endif %}
+    <div class="status-bar" id="status-tool2"></div>
+    {% if scored_data %}
+    {% set hot_count = scored_data|selectattr("prospect_label","equalto","HOT")|list|length %}
+    {% set warm_count = scored_data|selectattr("prospect_label","equalto","WARM")|list|length %}
+    {% set cold_count = scored_data|selectattr("prospect_label","equalto","COLD")|list|length %}
+    <div class="summary">
+        <span class="badge badge-hot">HOT: {{ hot_count }}</span>
+        <span class="badge badge-warm">WARM: {{ warm_count }}</span>
+        <span class="badge badge-cold">COLD: {{ cold_count }}</span>
+        <span class="badge badge-total">Total: {{ scored_data|length }}</span>
+    </div>
+    <div class="filter-tabs">
+        <button class="filter-tab active" onclick="filterTable('all', this)">All</button>
+        <button class="filter-tab" onclick="filterTable('HOT', this)">HOT</button>
+        <button class="filter-tab" onclick="filterTable('WARM', this)">WARM</button>
+        <button class="filter-tab" onclick="filterTable('COLD', this)">COLD</button>
+    </div>
+    <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'scored-table')"></div>
+    <div class="table-wrap">
+        <table id="scored-table">
+            <thead><tr><th>#</th><th>Business Name</th><th>Phone</th><th>Website</th><th>Address</th><th>Rating</th><th>Reviews</th><th>City</th><th>Score</th><th>Label</th></tr></thead>
+            <tbody>{% for row in scored_data %}<tr data-label="{{ row.prospect_label }}">
+                <td>{{ loop.index }}</td>
+                <td>{{ row.business_name or '---' }}</td>
+                <td>{{ row.phone or '---' }}</td>
+                <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                <td>{{ row.address or '---' }}</td>
+                <td>{{ row.rating or '---' }}</td>
+                <td>{{ row.review_count|int if row.review_count else '---' }}</td>
+                <td>{{ row.city or '---' }}</td>
+                <td>{{ row.review_score }}</td>
+                <td><span class="label label-{{ row.prospect_label }}">{{ row.prospect_label }}</span></td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No scored data yet. Run Tool 1 first, then click "Run Scorer".</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterTable(label, btn) {
+    btn.parentElement.querySelectorAll('.filter-tab').forEach(function(t){t.classList.remove('active');});
+    btn.classList.add('active');
+    document.querySelectorAll('#scored-table tbody tr').forEach(function(row){
+        row.style.display = (label === 'all' || row.getAttribute('data-label') === label) ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

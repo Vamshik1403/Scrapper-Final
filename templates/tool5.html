@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}Contact Finder — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Tool 5 — Contact Finder{% endblock %}
+{% block topbar_badge %}Contacts{% endblock %}
+
+{% block content %}
+<style>
+.owner-highlight{color:var(--accent-green);font-weight:600}
+.email-source-SCRAPED{background:#10b981;color:#fff;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600}
+.email-source-GUESSED{background:#f59e0b;color:#fff;padding:2px 8px;border-radius:4px;font-size:.75rem;font-weight:600}
+</style>
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num">5</span> Contact Finder</h2>
+        <div class="btn-group">
+            <button class="btn btn-green" id="btn-run-t5" onclick="runTool('tool5')">Run Contact Finder</button>
+            {% if contacts_data %}
+            <a class="btn btn-csv" href="/download/tool5/csv">CSV</a>
+            <a class="btn btn-excel" href="/download/tool5/excel">Excel</a>
+            {% endif %}
+        </div>
+    </div>
+    {% if contacts_data %}
+    <div class="dl-filters">
+        <span class="dl-filters-label">Download Filtered</span>
+        <a class="btn-dl btn-dl-purple" href="/download_filtered?tool=tool5&filter=has_email">Has Email</a>
+        <a class="btn-dl btn-dl-cyan" href="/download_filtered?tool=tool5&filter=has_owner">Has Owner Name</a>
+        <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool5&filter=valid_email">VALID Emails</a>
+        <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool5&filter=scraped_email">Scraped Only</a>
+        <a class="btn-dl btn-dl-purple" href="/download_filtered?tool=tool5&filter=guessed_email">Guessed Only</a>
+    </div>
+    {% endif %}
+    <div class="status-bar" id="status-tool5"></div>
+    {% if contacts_data %}
+    {% set name_found = contacts_data|rejectattr("owner_name","equalto","Team")|list|length %}
+    {% set email_found = contacts_data|selectattr("personal_email")|list|length %}
+    {% set valid_count = contacts_data|selectattr("email_status","equalto","VALID")|list|length %}
+    {% set catchall_count = contacts_data|selectattr("email_status","equalto","CATCH-ALL")|list|length %}
+    {% set scraped_count = contacts_data|selectattr("email_source","equalto","SCRAPED")|list|length %}
+    {% set guessed_count = contacts_data|selectattr("email_source","equalto","GUESSED")|list|length %}
+    <div class="summary">
+        <span class="badge badge-purple">Names: {{ name_found }}</span>
+        <span class="badge badge-purple">Emails: {{ email_found }}</span>
+        <span class="badge badge-green">Scraped: {{ scraped_count }}</span>
+        <span class="badge badge-warm">Guessed: {{ guessed_count }}</span>
+        <span class="badge badge-green">VALID: {{ valid_count }}</span>
+        <span class="badge badge-warm">CATCH-ALL: {{ catchall_count }}</span>
+        <span class="badge badge-total">Total: {{ contacts_data|length }}</span>
+    </div>
+    <div class="filter-tabs" id="email-filter-tabs">
+        <button class="filter-tab active" onclick="filterEmailTable('all', this)">All</button>
+        <button class="filter-tab" onclick="filterEmailTable('SCRAPED', this)">Scraped</button>
+        <button class="filter-tab" onclick="filterEmailTable('GUESSED', this)">Guessed</button>
+        <button class="filter-tab" onclick="filterEmailTable('VALID', this)">VALID</button>
+        <button class="filter-tab" onclick="filterEmailTable('CATCH-ALL', this)">CATCH-ALL</button>
+        <button class="filter-tab" onclick="filterEmailTable('INVALID', this)">INVALID/NO_MX</button>
+        <button class="filter-tab" onclick="filterEmailTable('UNKNOWN', this)">UNKNOWN</button>
+    </div>
+    <div class="search-box"><input type="text" placeholder="Search contacts..." onkeyup="searchTable(this, 'email-table')"></div>
+    <div class="table-wrap">
+        <table id="email-table">
+            <thead><tr><th>#</th><th>Business</th><th>Owner</th><th>Email</th><th>Source</th><th>Status</th><th>Direct Phone</th><th>Phone</th><th>Website</th><th>City</th><th>Quality</th></tr></thead>
+            <tbody>{% for row in contacts_data %}<tr data-emailstatus="{{ row.email_status if row.email_status else 'UNKNOWN' }}" data-emailsource="{{ row.email_source if row.email_source else '' }}">
+                <td>{{ loop.index }}</td>
+                <td>{{ row.business_name or '---' }}</td>
+                <td class="{{ 'owner-highlight' if row.owner_name != 'Team' else '' }}">{{ row.owner_name }}</td>
+                <td>{{ row.personal_email or '---' }}</td>
+                <td>{% if row.email_source %}<span class="label email-source-{{ row.email_source }}">{{ row.email_source }}</span>{% else %}---{% endif %}</td>
+                <td><span class="label email-{{ row.email_status if row.email_status else 'UNKNOWN' }}">{{ row.email_status if row.email_status else 'UNKNOWN' }}</span></td>
+                <td>{{ row.direct_phone or '---' }}</td>
+                <td>{{ row.phone or '---' }}</td>
+                <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                <td>{{ row.city or '---' }}</td>
+                <td>{% if row.website_quality %}<span class="label quality-{{ row.website_quality }}">{{ row.website_quality }}</span>{% else %}---{% endif %}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No contact data yet. Run Tool 4 first, then click "Run Contact Finder".</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterEmailTable(filter, btn) {
+    document.querySelectorAll('#email-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+    btn.classList.add('active');
+    document.querySelectorAll('#email-table tbody tr').forEach(function(row){
+        var st = row.getAttribute('data-emailstatus');
+        var src = row.getAttribute('data-emailsource');
+        var show;
+        if (filter === 'all') show = true;
+        else if (filter === 'SCRAPED' || filter === 'GUESSED') show = src === filter;
+        else if (filter === 'INVALID') show = st === 'INVALID' || st === 'NO_MX';
+        else show = st === filter;
+        row.style.display = show ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

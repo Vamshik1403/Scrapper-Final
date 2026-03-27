@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Ads Checker — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Tool 3 — Ads Checker{% endblock %}
+{% block topbar_badge %}Google Ads{% endblock %}
+
+{% block content %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num">3</span> Ads Checker</h2>
+        <div class="btn-group">
+            <button class="btn btn-green" id="btn-run-t3" onclick="runTool('tool3')">Run Ads Checker</button>
+            {% if ads_data %}
+            <a class="btn btn-csv" href="/download/tool3/csv">CSV</a>
+            <a class="btn btn-excel" href="/download/tool3/excel">Excel</a>
+            {% endif %}
+        </div>
+    </div>
+    {% if ads_data %}
+    <div class="dl-filters">
+        <span class="dl-filters-label">Download Filtered</span>
+        <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool3&filter=hot_no_ads">HOT + No Ads</a>
+        <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool3&filter=no_ads">No Ads</a>
+        <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool3&filter=running_ads">Running Ads</a>
+    </div>
+    {% endif %}
+    <div class="status-bar" id="status-tool3"></div>
+    {% if ads_data %}
+    {% set hot_no_ads = ads_data|selectattr("prospect_label","equalto","HOT")|selectattr("ads_running","equalto","NO")|list|length %}
+    {% set ads_yes = ads_data|selectattr("ads_running","equalto","YES")|list|length %}
+    {% set ads_no = ads_data|selectattr("ads_running","equalto","NO")|list|length %}
+    <div class="summary">
+        <span class="badge badge-hot">HOT + No Ads: {{ hot_no_ads }}</span>
+        <span class="badge badge-warm">Running Ads: {{ ads_yes }}</span>
+        <span class="badge badge-green">No Ads: {{ ads_no }}</span>
+        <span class="badge badge-total">Total: {{ ads_data|length }}</span>
+    </div>
+    <div class="filter-tabs" id="ads-filter-tabs">
+        <button class="filter-tab active" onclick="filterAdsTable('all', this)">All</button>
+        <button class="filter-tab" onclick="filterAdsTable('NO', this)">No Ads</button>
+        <button class="filter-tab" onclick="filterAdsTable('YES', this)">Running Ads</button>
+        <button class="filter-tab" onclick="filterAdsTable('HOT', this)">HOT Only</button>
+    </div>
+    <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'ads-table')"></div>
+    <div class="table-wrap">
+        <table id="ads-table">
+            <thead><tr><th>#</th><th>Business Name</th><th>Phone</th><th>Website</th><th>City</th><th>Reviews</th><th>Label</th><th>Ads?</th><th>Ad Count</th></tr></thead>
+            <tbody>{% for row in ads_data %}<tr data-ads="{{ row.ads_running }}" data-label="{{ row.prospect_label }}">
+                <td>{{ loop.index }}</td>
+                <td>{{ row.business_name or '---' }}</td>
+                <td>{{ row.phone or '---' }}</td>
+                <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                <td>{{ row.city or '---' }}</td>
+                <td>{{ row.review_count if row.review_count == row.review_count else '---' }}</td>
+                <td><span class="label label-{{ row.prospect_label }}">{{ row.prospect_label }}</span></td>
+                <td><span class="ads-{{ row.ads_running|lower }}">{{ row.ads_running }}</span></td>
+                <td>{{ row.ads_count }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No ads data yet. Run Tool 2 first, then click "Run Ads Checker".</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterAdsTable(filter, btn) {
+    document.querySelectorAll('#ads-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+    btn.classList.add('active');
+    document.querySelectorAll('#ads-table tbody tr').forEach(function(row){
+        var ads = row.getAttribute('data-ads'), label = row.getAttribute('data-label');
+        var show = filter === 'all' || (filter === 'NO' || filter === 'YES' ? ads === filter : label === 'HOT');
+        row.style.display = show ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

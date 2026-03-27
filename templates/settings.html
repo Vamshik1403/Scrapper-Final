@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+{% block title %}Settings — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Settings{% endblock %}
+{% block topbar_badge %}Configuration{% endblock %}
+
+{% block content %}
+<style>
+.role-badge{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700}
+.role-admin{background:rgba(139,92,246,0.15);color:#c4b5fd}
+.role-user{background:rgba(59,130,246,0.15);color:#93c5fd}
+</style>
+<!-- CONFIGURATION -->
+<div class="control-card animate-in">
+    <h2>Configuration</h2>
+    <div class="control-grid">
+        <div class="control-item">
+            <label>Target Cities (comma separated)</label>
+            <input type="text" id="cities-input" value="{{ current_cities }}" placeholder="Columbus Ohio, Nashville Tennessee">
+        </div>
+        <div class="control-item">
+            <label>Service Type</label>
+            <select id="service-select">
+                <option value="garage door repair" {% if active_service == 'garage door repair' %}selected{% endif %}>Garage Door Repair</option>
+                <option value="plumber" {% if active_service == 'plumber' %}selected{% endif %}>Plumber</option>
+                <option value="electrician" {% if active_service == 'electrician' %}selected{% endif %}>Electrician</option>
+            </select>
+        </div>
+        <div class="control-item">
+            <label>Run Individual Tool</label>
+            <select id="single-tool-select">
+                <option value="tool1">Tool 1 - Scraper</option>
+                <option value="tool2">Tool 2 - Review Scorer</option>
+                <option value="tool3">Tool 3 - Ads Checker</option>
+                <option value="tool4">Tool 4 - Website Checker</option>
+                <option value="tool5">Tool 5 - Contact Finder</option>
+                <option value="tool6">Tool 6 - GBP Analyser</option>
+                <option value="tool7">Tool 7 - Competitor Intel</option>
+                <option value="tool8">Tool 8 - Value Calculator</option>
+                <option value="tool9">Tool 9 - Email Personaliser</option>
+                <option value="tool10">Tool 10 - PDF Generator</option>
+            </select>
+        </div>
+        <div class="control-item">
+            <label>Processing Mode</label>
+            <div style="display:flex; align-items:center; gap:10px; padding:8px 0;">
+                <div class="toggle-switch{% if smart_mode %} active{% endif %}" id="settings-smart-toggle" onclick="toggleSmartMode(this)" style="flex-shrink:0;"></div>
+                <span style="font-size:13px; color:var(--text-secondary);">Smart Mode</span>
+                <span id="settings-smart-badge" style="font-size:10px; padding:2px 8px; border-radius:10px; font-weight:700; {% if smart_mode %}background:rgba(34,197,94,0.15); color:#86efac;{% else %}background:rgba(100,116,139,0.15); color:#94a3b8;{% endif %}">{% if smart_mode %}ON{% else %}OFF{% endif %}</span>
+            </div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">When ON, API tools skip COLD leads and include promising WARM leads. Saves 50-70% API credits.</div>
+        </div>
+    </div>
+    <div class="control-actions">
+        <button class="btn btn-green" onclick="saveCities()">Save Locations</button>
+        <button class="btn btn-blue" onclick="saveService()">Set Service</button>
+        <button class="btn btn-primary" onclick="runSelectedTool()">Run Selected Tool</button>
+        <button class="btn btn-danger" onclick="clearOutput()">Clear All Data</button>
+    </div>
+    <div id="control-msg"></div>
+</div>
+
+<!-- Status cards for running tools -->
+{% for i in range(1, 11) %}
+<div class="status-bar" id="status-tool{{ i }}"></div>
+{% endfor %}
+
+<!-- API USAGE & CACHE -->
+<div class="control-card animate-in" style="margin-top: 24px;">
+    <h2>API Usage & Cache</h2>
+    <div id="api-msg" style="display:none; font-size:13px; padding:10px 14px; border-radius:8px; margin-bottom:14px;"></div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px,1fr)); gap:16px; margin-bottom:18px;">
+        <div style="padding:14px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border);">
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">SerpApi Credits</div>
+            <div style="font-size:22px; font-weight:700;" id="su-serp-remaining">--</div>
+            <div style="font-size:12px; color:var(--text-muted);"><span id="su-serp-used">--</span> / <span id="su-serp-limit">100</span> used this month</div>
+        </div>
+        <div style="padding:14px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border);">
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">OpenAI Calls</div>
+            <div style="font-size:22px; font-weight:700;" id="su-openai-calls">--</div>
+            <div style="font-size:12px; color:var(--text-muted);">this month</div>
+        </div>
+        <div style="padding:14px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border);">
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">API Keys</div>
+            <div style="font-size:16px; font-weight:700;"><span id="su-serp-keys">--</span> SerpApi, <span id="su-openai-keys">--</span> OpenAI</div>
+            <div style="font-size:12px; color:var(--text-muted);"><span id="su-serp-exhausted">0</span> exhausted</div>
+        </div>
+        <div style="padding:14px; border-radius:10px; background:rgba(255,255,255,0.03); border:1px solid var(--border);">
+            <div style="font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Cache</div>
+            <div style="font-size:22px; font-weight:700;" id="su-cache-count">--</div>
+            <div style="font-size:12px; color:var(--text-muted);"><span id="su-cache-size">--</span> KB cached (<span id="su-cache-ttl">7</span> day TTL)</div>
+        </div>
+    </div>
+    <div class="control-actions">
+        <button class="btn btn-danger" onclick="clearApiCache()">Clear API Cache</button>
+    </div>
+</div>
+
+<!-- USER MANAGEMENT (Admin Only) -->
+{% if show_users|default(false) %}
+<div class="control-card animate-in" style="margin-top: 24px;">
+    <h2 style="display: flex; align-items: center; gap: 8px;">&#x1F465; User Management</h2>
+    <div id="user-msg" style="display:none; font-size:13px; padding:10px 14px; border-radius:8px; margin-bottom:14px;"></div>
+
+    <!-- Create User Form -->
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; align-items:flex-end;">
+        <div style="flex:1; min-width:140px;">
+            <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Username</label>
+            <input type="text" id="new-username" placeholder="Enter username" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit;">
+        </div>
+        <div style="flex:1; min-width:140px;">
+            <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Password</label>
+            <div style="position:relative;">
+                <input type="password" id="new-password" placeholder="Enter password" style="width:100%; padding:8px 12px; padding-right:36px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit;">
+                <button type="button" onclick="togglePw('new-password', this)" title="Show password" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:2px; line-height:1;">&#x1F441;</button>
+            </div>
+        </div>
+        <div style="min-width:100px;">
+            <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Role</label>
+            <select id="new-role" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit;">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+        <button class="btn btn-green" onclick="createUser()">+ Add User</button>
+    </div>
+
+    <!-- Users Table -->
+    <div style="overflow-x:auto;">
+        <table style="width:100%; border-collapse:collapse; font-size:13px;">
+            <thead>
+                <tr style="border-bottom:1px solid var(--border);">
+                    <th style="text-align:left; padding:10px 12px; color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Username</th>
+                    <th style="text-align:left; padding:10px 12px; color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Role</th>
+                    <th style="text-align:left; padding:10px 12px; color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Created</th>
+                    <th style="text-align:right; padding:10px 12px; color:var(--text-muted); font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for u in users %}
+                <tr id="user-row-{{ u.id }}" style="border-bottom:1px solid var(--border);">
+                    <td style="padding:10px 12px; font-weight:600;">{{ u.username }}</td>
+                    <td style="padding:10px 12px;">
+                        <span class="role-badge {{ 'role-admin' if u.role == 'admin' else 'role-user' }}">
+                            {{ u.role }}
+                        </span>
+                    </td>
+                    <td style="padding:10px 12px; color:var(--text-muted); font-size:12px;">{{ u.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                    <td style="padding:10px 12px; text-align:right;">
+                        <button class="btn btn-blue" style="padding:4px 10px; font-size:11px;" data-uid="{{ u.id }}" data-uname="{{ u.username }}" onclick="resetPassword(+this.dataset.uid, this.dataset.uname)">Reset PW</button>
+                        {% if u.username != current_user.username %}
+                        <button class="btn btn-danger" style="padding:4px 10px; font-size:11px;" data-uid="{{ u.id }}" data-uname="{{ u.username }}" onclick="deleteUser(+this.dataset.uid, this.dataset.uname)">Delete</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- BACKUP SYSTEM (Admin Only) -->
+{% if current_user.is_authenticated and current_user.is_admin %}
+<div class="control-card animate-in" style="margin-top: 24px;">
+    <h2 style="display: flex; align-items: center; gap: 8px;">&#x1F4BE; Database Backup</h2>
+    <p style="font-size:12px; color:var(--text-muted); margin:-8px 0 16px;">Full backup: users DB + lead CSVs + cities config</p>
+    <div id="backup-msg" style="display:none; font-size:13px; padding:10px 14px; border-radius:8px; margin-bottom:14px;"></div>
+
+    <!-- Backup Actions -->
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
+        <a href="/backup/download" class="btn btn-blue" style="text-decoration:none;">&#x2B07; Download Backup</a>
+        <button class="btn btn-green" onclick="createBackup()">&#x1F4C2; Create Backup</button>
+        <button class="btn btn-primary" onclick="loadBackups()" style="padding:6px 14px; font-size:12px;">&#x1F504; View Backups</button>
+    </div>
+
+    <!-- Restore from Upload -->
+    <div style="border-top:1px solid var(--border); padding-top:16px; margin-bottom:16px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:600; margin-bottom:10px;">&#x1F4E4; Restore from File</div>
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+            <input type="file" id="restore-file" accept=".zip" style="font-size:12px; color:var(--text-secondary);">
+            <button class="btn btn-danger" onclick="restoreFromUpload()" style="padding:6px 14px; font-size:12px;">&#x26A0; Restore Backup</button>
+        </div>
+        <p style="font-size:11px; color:var(--text-muted); margin:6px 0 0;">Upload a .zip backup file to restore all data.</p>
+    </div>
+
+    <!-- Saved Backups List + Restore from Server -->
+    <div id="backup-list" style="display:none; border-top:1px solid var(--border); padding-top:16px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:600; margin-bottom:10px;">Saved Backups</div>
+        <div id="backup-list-items" style="font-size:13px; color:var(--text-secondary);"></div>
+    </div>
+</div>
+{% endif %}
+
+<!-- API KEY MANAGEMENT (Admin Only) -->
+{% if current_user.is_authenticated and current_user.is_admin %}
+<div class="control-card animate-in" style="margin-top: 24px;">
+    <h2 style="display: flex; align-items: center; gap: 8px;">&#x1F511; API Key Management</h2>
+    <p style="font-size:12px; color:var(--text-muted); margin:-8px 0 16px;">Change API keys without editing files. Keys reload instantly — no restart needed.</p>
+    <div id="apikey-msg" style="display:none; font-size:13px; padding:10px 14px; border-radius:8px; margin-bottom:14px;"></div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:18px;">
+        <div>
+            <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">SerpApi Key</label>
+            <div style="position:relative;">
+                <input type="password" id="ak-serpapi" placeholder="Enter SerpApi key" style="width:100%; padding:8px 12px; padding-right:36px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit;">
+                <button type="button" onclick="togglePw('ak-serpapi', this)" title="Show key" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:2px; line-height:1;">&#x1F441;</button>
+            </div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Current: <span id="ak-serpapi-current" style="font-family:monospace;">loading...</span></div>
+        </div>
+        <div>
+            <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">OpenAI Key</label>
+            <div style="position:relative;">
+                <input type="password" id="ak-openai" placeholder="Enter OpenAI key" style="width:100%; padding:8px 12px; padding-right:36px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit;">
+                <button type="button" onclick="togglePw('ak-openai', this)" title="Show key" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:2px; line-height:1;">&#x1F441;</button>
+            </div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Current: <span id="ak-openai-current" style="font-family:monospace;">loading...</span></div>
+        </div>
+        <div>
+            <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Your Email (for outreach)</label>
+            <input type="email" id="ak-email" placeholder="your@email.com" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit;">
+            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Current: <span id="ak-email-current">loading...</span></div>
+        </div>
+        <div>
+            <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Your Website (for outreach)</label>
+            <input type="text" id="ak-website" placeholder="yourwebsite.com" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit;">
+            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Current: <span id="ak-website-current">loading...</span></div>
+        </div>
+    </div>
+
+    <!-- SMTP Settings -->
+    <div style="border-top:1px solid var(--border); padding-top:16px; margin-top:16px;">
+        <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--text-muted); font-weight:600; margin-bottom:12px;">&#x2709; SMTP Settings (Email Sending)</div>
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin-bottom:14px;">
+            <div>
+                <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">SMTP Host</label>
+                <input type="text" id="ak-smtp-host" placeholder="smtp.gmail.com" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit;">
+                <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Current: <span id="ak-smtp-host-current">loading...</span></div>
+            </div>
+            <div>
+                <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">SMTP Port</label>
+                <input type="number" id="ak-smtp-port" placeholder="587" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit;">
+                <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Current: <span id="ak-smtp-port-current">loading...</span></div>
+            </div>
+            <div>
+                <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">SMTP Password / App Password</label>
+                <div style="position:relative;">
+                    <input type="password" id="ak-smtp-password" placeholder="App password" style="width:100%; padding:8px 12px; padding-right:36px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit;">
+                    <button type="button" onclick="togglePw('ak-smtp-password', this)" title="Show password" style="position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:14px; padding:2px; line-height:1;">&#x1F441;</button>
+                </div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">Status: <span id="ak-smtp-status">loading...</span></div>
+            </div>
+        </div>
+        <p style="font-size:11px; color:var(--text-muted);">Gmail: smtp.gmail.com / 587 / <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:#67e8f9;">App Password</a>. Outlook: smtp.office365.com / 587. <strong style="color:#86efac;">Zoho: smtp.zoho.com / 587</strong> / <a href="https://accounts.zoho.com/home#security/security_pwd" target="_blank" style="color:#67e8f9;">App Password</a> (recommended — higher limits).</p>
+    </div>
+
+    <p style="font-size:11px; color:var(--text-muted); margin:12px 0;">Leave a field empty to keep the current value. For multiple SerpApi keys, use commas: <code style="background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px;">key1,key2,key3</code></p>
+
+    <div class="control-actions">
+        <button class="btn btn-green" onclick="saveApiKeys()">Save API Keys</button>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showUserMsg(msg, isError) {
+    var el = document.getElementById('user-msg');
+    if (!el) return;
+    el.textContent = msg; el.style.display = 'block';
+    el.style.background = isError ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)';
+    el.style.color = isError ? '#fca5a5' : '#86efac';
+    el.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(34,197,94,0.3)';
+    setTimeout(function() { el.style.display = 'none'; }, 4000);
+}
+function showControlMsg(msg, isError) {
+    var el = document.getElementById('control-msg');
+    el.textContent = msg; el.style.display = 'block';
+    el.style.background = isError ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)';
+    el.style.color = isError ? '#fca5a5' : '#86efac';
+    el.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(34,197,94,0.3)';
+    el.style.borderRadius = '8px'; el.style.padding = '8px 14px';
+    setTimeout(function() { el.style.display = 'none'; }, 4000);
+}
+function saveCities() {
+    var val = document.getElementById('cities-input').value;
+    fetch('/save_cities', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cities:val}) })
+    .then(function(r){return r.json();}).then(function(d){ showControlMsg(d.msg, false); });
+}
+function saveService() {
+    var val = document.getElementById('service-select').value;
+    fetch('/save_service', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({service:val}) })
+    .then(function(r){return r.json();}).then(function(d){ showControlMsg(d.msg, false); });
+}
+function runSelectedTool() { runTool(document.getElementById('single-tool-select').value); }
+function clearOutput() {
+    if (!confirm('Delete all CSV/Excel files and PDFs?')) return;
+    fetch('/clear_output', { method:'POST' })
+    .then(function(r){return r.json();})
+    .then(function(d){ showControlMsg(d.msg, false); setTimeout(function(){ location.reload(); }, 1000); });
+}
+function toggleSmartMode(el) {
+    el.classList.toggle('active');
+    var enabled = el.classList.contains('active');
+    var badge = document.getElementById('settings-smart-badge');
+    badge.textContent = enabled ? 'ON' : 'OFF';
+    badge.style.background = enabled ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.15)';
+    badge.style.color = enabled ? '#86efac' : '#94a3b8';
+    fetch('/save_smart_mode', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({enabled: enabled})
+    }).then(function(r){return r.json();}).then(function(d){ showControlMsg(d.msg, false); });
+}
+
+function createUser() {
+    var username = document.getElementById('new-username').value.trim();
+    var password = document.getElementById('new-password').value;
+    var role = document.getElementById('new-role').value;
+    if (!username || !password) { showUserMsg('Username and password are required.', true); return; }
+    fetch('/users/create', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:username, password:password, role:role}) })
+    .then(function(r){return r.json();})
+    .then(function(d){
+        showUserMsg(d.msg, d.status === 'error');
+        if (d.status === 'ok') { setTimeout(function(){ location.reload(); }, 800); }
+    });
+}
+function deleteUser(id, name) {
+    if (!confirm('Delete user "' + name + '"?')) return;
+    fetch('/users/delete', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:id}) })
+    .then(function(r){return r.json();})
+    .then(function(d){
+        showUserMsg(d.msg, d.status === 'error');
+        if (d.status === 'ok') { var row = document.getElementById('user-row-' + id); if (row) row.remove(); }
+    });
+}
+function resetPassword(id, name) {
+    var pw = prompt('Enter new password for "' + name + '" (min 4 chars):');
+    if (!pw) return;
+    fetch('/users/reset-password', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({user_id:id, password:pw}) })
+    .then(function(r){return r.json();})
+    .then(function(d){ showUserMsg(d.msg, d.status === 'error'); });
+}
+function togglePw(inputId, btn) {
+    var inp = document.getElementById(inputId);
+    if (inp.type === 'password') {
+        inp.type = 'text';
+        btn.innerHTML = '&#x1F6AB;';
+        btn.title = 'Hide password';
+    } else {
+        inp.type = 'password';
+        btn.innerHTML = '&#x1F441;';
+        btn.title = 'Show password';
+    }
+}
+
+function showBackupMsg(msg, isError) {
+    var el = document.getElementById('backup-msg');
+    if (!el) return;
+    el.textContent = msg; el.style.display = 'block';
+    el.style.background = isError ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)';
+    el.style.color = isError ? '#fca5a5' : '#86efac';
+    el.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(34,197,94,0.3)';
+    setTimeout(function() { el.style.display = 'none'; }, 5000);
+}
+function createBackup() {
+    fetch('/backup/create', { method:'POST' })
+    .then(function(r){return r.json();})
+    .then(function(d){
+        showBackupMsg(d.msg, d.status === 'error');
+        if (d.status === 'ok') loadBackups();
+    });
+}
+function loadBackups() {
+    fetch('/backup/list')
+    .then(function(r){return r.json();})
+    .then(function(d){
+        var container = document.getElementById('backup-list-items');
+        var wrap = document.getElementById('backup-list');
+        if (d.backups.length === 0) {
+            container.innerHTML = '<span style="color:var(--text-muted)">No backups yet.</span>';
+        } else {
+            container.innerHTML = d.backups.map(function(b){
+                return '<div style="padding:8px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center;">' +
+                    '<span>' + b.name + '</span>' +
+                    '<div style="display:flex; gap:8px; align-items:center;">' +
+                        '<span style="color:var(--text-muted); font-size:11px;">' + b.size_kb + ' KB</span>' +
+                        '<button class="btn btn-danger" style="padding:3px 10px; font-size:11px;" onclick="restoreFromServer(\'' + b.name + '\')">Restore</button>' +
+                    '</div>' +
+                '</div>';
+            }).join('');
+        }
+        wrap.style.display = 'block';
+    });
+}
+function restoreFromUpload() {
+    var fileInput = document.getElementById('restore-file');
+    if (!fileInput.files.length) { showBackupMsg('Please select a .zip backup file.', true); return; }
+    if (!confirm('⚠️ WARNING: This will overwrite ALL current data (users, leads, config).\n\nAre you sure you want to restore from this backup?')) return;
+    var formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    fetch('/backup/restore', { method:'POST', body: formData })
+    .then(function(r){return r.json();})
+    .then(function(d){
+        showBackupMsg(d.msg, d.status === 'error');
+        if (d.status === 'ok') setTimeout(function(){ location.reload(); }, 1500);
+    })
+    .catch(function(){ showBackupMsg('Restore failed.', true); });
+}
+function restoreFromServer(name) {
+    if (!confirm('⚠️ WARNING: This will overwrite ALL current data (users, leads, config) with backup:\n\n' + name + '\n\nAre you sure?')) return;
+    fetch('/backup/restore-server', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name:name}) })
+    .then(function(r){return r.json();})
+    .then(function(d){
+        showBackupMsg(d.msg, d.status === 'error');
+        if (d.status === 'ok') setTimeout(function(){ location.reload(); }, 1500);
+    })
+    .catch(function(){ showBackupMsg('Restore failed.', true); });
+}
+
+/* ===== API USAGE ===== */
+function showApiMsg(msg, isError) {
+    var el = document.getElementById('api-msg');
+    if (!el) return;
+    el.textContent = msg; el.style.display = 'block';
+    el.style.background = isError ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)';
+    el.style.color = isError ? '#fca5a5' : '#86efac';
+    el.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(34,197,94,0.3)';
+    setTimeout(function() { el.style.display = 'none'; }, 4000);
+}
+(function loadApiUsage() {
+    fetch('/api_usage').then(function(r){return r.json();}).then(function(u) {
+        document.getElementById('su-serp-used').textContent = u.serpapi_calls;
+        document.getElementById('su-serp-limit').textContent = u.serpapi_limit;
+        var remEl = document.getElementById('su-serp-remaining');
+        remEl.textContent = u.serpapi_remaining;
+        remEl.style.color = u.serpapi_remaining <= 10 ? '#fca5a5' : u.serpapi_remaining <= 20 ? '#fcd34d' : '#86efac';
+        document.getElementById('su-openai-calls').textContent = u.openai_calls;
+        document.getElementById('su-serp-keys').textContent = u.serpapi_keys_total;
+        document.getElementById('su-openai-keys').textContent = u.openai_keys_total;
+        document.getElementById('su-serp-exhausted').textContent = u.serpapi_keys_exhausted;
+    }).catch(function(){});
+    fetch('/cache_stats').then(function(r){return r.json();}).then(function(d) {
+        document.getElementById('su-cache-count').textContent = d.cached_queries;
+        document.getElementById('su-cache-size').textContent = d.total_size_kb;
+        document.getElementById('su-cache-ttl').textContent = d.ttl_days;
+    }).catch(function(){});
+})();
+function clearApiCache() {
+    if (!confirm('Clear all cached SerpApi responses? Next pipeline run will use fresh API calls.')) return;
+    fetch('/clear_cache', { method:'POST' })
+    .then(function(r){return r.json();})
+    .then(function(d){ showApiMsg(d.msg, false); setTimeout(function(){ location.reload(); }, 1000); })
+    .catch(function(){ showApiMsg('Failed to clear cache.', true); });
+}
+
+/* ===== API KEY MANAGEMENT ===== */
+function showApikeyMsg(msg, isError) {
+    var el = document.getElementById('apikey-msg');
+    if (!el) return;
+    el.textContent = msg; el.style.display = 'block';
+    el.style.background = isError ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)';
+    el.style.color = isError ? '#fca5a5' : '#86efac';
+    el.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(34,197,94,0.3)';
+    setTimeout(function() { el.style.display = 'none'; }, 5000);
+}
+(function loadCurrentKeys() {
+    fetch('/get_api_keys').then(function(r){return r.json();}).then(function(d) {
+        var serpEl = document.getElementById('ak-serpapi-current');
+        var oaiEl = document.getElementById('ak-openai-current');
+        serpEl.textContent = d.serpapi_key || '(not set)';
+        serpEl.style.color = d.serpapi_key ? '#86efac' : '#fca5a5';
+        if (d.serpapi_keys_count > 1) serpEl.textContent += ' (' + d.serpapi_keys_count + ' keys)';
+        oaiEl.textContent = d.openai_key || '(not set)';
+        oaiEl.style.color = d.openai_key ? '#86efac' : '#fca5a5';
+        if (d.openai_keys_count > 1) oaiEl.textContent += ' (' + d.openai_keys_count + ' keys)';
+        document.getElementById('ak-email-current').textContent = d.your_email || '(not set)';
+        document.getElementById('ak-website-current').textContent = d.your_website || '(not set)';
+        document.getElementById('ak-smtp-host-current').textContent = d.smtp_host || '(not set)';
+        document.getElementById('ak-smtp-port-current').textContent = d.smtp_port || '587';
+        var smtpStatus = document.getElementById('ak-smtp-status');
+        if (d.smtp_configured) { smtpStatus.textContent = 'Configured'; smtpStatus.style.color = '#86efac'; }
+        else { smtpStatus.textContent = 'Not configured'; smtpStatus.style.color = '#fca5a5'; }
+    }).catch(function(){});
+})();
+function saveApiKeys() {
+    var payload = {
+        serpapi_key: document.getElementById('ak-serpapi').value,
+        openai_key: document.getElementById('ak-openai').value,
+        your_email: document.getElementById('ak-email').value,
+        your_website: document.getElementById('ak-website').value,
+        smtp_host: document.getElementById('ak-smtp-host').value,
+        smtp_port: document.getElementById('ak-smtp-port').value,
+        smtp_password: document.getElementById('ak-smtp-password').value
+    };
+    fetch('/save_api_keys', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    }).then(function(r){return r.json();}).then(function(d) {
+        showApikeyMsg(d.msg, d.status === 'error');
+        if (d.status === 'ok') setTimeout(function(){ location.reload(); }, 1500);
+    }).catch(function(){ showApikeyMsg('Failed to save keys.', true); });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Lead Scraper — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Tool 1 — Lead Scraper{% endblock %}
+{% block topbar_badge %}Google Maps{% endblock %}
+
+{% block content %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num">1</span> Google Maps Scraper</h2>
+        <div class="btn-group">
+            <button class="btn btn-green" id="btn-run-t1" onclick="runTool('tool1')">Run Scraper</button>
+            {% if raw_data %}
+            <a class="btn btn-csv" href="/download/tool1/csv">CSV</a>
+            <a class="btn btn-excel" href="/download/tool1/excel">Excel</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="status-bar" id="status-tool1"></div>
+    {% if raw_data %}
+    <div class="summary">
+        <span class="badge badge-total">{{ raw_data|length }} companies</span>
+    </div>
+    <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'raw-table')"></div>
+    <div class="table-wrap">
+        <table id="raw-table">
+            <thead><tr><th>#</th><th>Business Name</th><th>Phone</th><th>Website</th><th>Address</th><th>Rating</th><th>Reviews</th><th>City</th></tr></thead>
+            <tbody>{% for row in raw_data %}<tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ row.business_name or '---' }}</td>
+                <td>{{ row.phone or '---' }}</td>
+                <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                <td>{{ row.address or '---' }}</td>
+                <td>{{ row.rating or '---' }}</td>
+                <td>{{ row.review_count|int if row.review_count else '---' }}</td>
+                <td>{{ row.city or '---' }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No data yet. Click "Run Scraper" to start collecting leads.</div>
+    {% endif %}
+</div>
+{% endblock %}

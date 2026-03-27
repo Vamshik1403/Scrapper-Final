@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}PDF Generator — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Tool 10 — PDF Audit Generator{% endblock %}
+{% block topbar_badge %}Audits{% endblock %}
+
+{% block content %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num">10</span> PDF Audit Generator</h2>
+        <div class="btn-group">
+            <button class="btn btn-green" id="btn-run-t10" onclick="runTool('tool10')">Generate PDFs</button>
+        </div>
+    </div>
+    <div class="status-bar" id="status-tool10"></div>
+    {% if audit_files %}
+    <div class="summary">
+        <span class="badge badge-purple">{{ audit_files|length }} PDFs ready</span>
+    </div>
+    <div class="table-wrap">
+        <table id="audit-table">
+            <thead><tr><th>#</th><th>Audit File</th><th>Download</th></tr></thead>
+            <tbody>{% for file in audit_files %}<tr>
+                <td>{{ loop.index }}</td>
+                <td style="color:#86efac;">{{ file }}</td>
+                <td><a class="btn btn-csv" href="/download/audit/{{ file }}" style="font-size:11px;">Download PDF</a></td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No PDF audits yet. Run Tool 9 first, then click "Generate PDFs".</div>
+    {% endif %}
+</div>
+{% endblock %}

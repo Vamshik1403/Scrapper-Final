@@ -1,0 +1,1913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GarageLeadsPro Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-primary: #0b1120;
+            --bg-card: #111827;
+            --bg-card-hover: #1a2332;
+            --bg-input: #0f172a;
+            --border: #1e293b;
+            --border-hover: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --accent-blue: #3b82f6;
+            --accent-purple: #8b5cf6;
+            --accent-green: #22c55e;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-cyan: #06b6d4;
+            --shadow: 0 4px 24px rgba(0,0,0,0.3);
+            --radius: 12px;
+            --radius-sm: 8px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: var(--bg-primary); }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+
+        /* Header */
+        .header {
+            background: linear-gradient(135deg, #111827 0%, #1e1b4b 100%);
+            padding: 18px 32px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+        }
+        .header-left { display: flex; align-items: center; gap: 12px; }
+        .header-logo {
+            width: 36px; height: 36px; border-radius: 10px;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 16px; color: #fff;
+        }
+        .header h1 { font-size: 20px; font-weight: 700; color: #fff; }
+        .header h1 span { color: var(--accent-purple); }
+        .header-right { display: flex; align-items: center; gap: 16px; }
+        .header-badge {
+            padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: 600;
+            background: rgba(139,92,246,0.15); color: var(--accent-purple); border: 1px solid rgba(139,92,246,0.3);
+        }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        /* ===== KPI CARDS ===== */
+        .kpi-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .kpi-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .kpi-card:hover {
+            border-color: var(--border-hover);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow);
+        }
+        .kpi-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+        }
+        .kpi-card.kpi-leads::before { background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan)); }
+        .kpi-card.kpi-hot::before { background: linear-gradient(90deg, var(--accent-red), #f97316); }
+        .kpi-card.kpi-emails::before { background: linear-gradient(90deg, var(--accent-purple), #a78bfa); }
+        .kpi-card.kpi-pdfs::before { background: linear-gradient(90deg, var(--accent-green), #4ade80); }
+        .kpi-card.kpi-gap::before { background: linear-gradient(90deg, var(--accent-yellow), #fbbf24); }
+        .kpi-card.kpi-gbp::before { background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue)); }
+        .kpi-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; margin-bottom: 12px;
+        }
+        .kpi-leads .kpi-icon { background: rgba(59,130,246,0.15); }
+        .kpi-hot .kpi-icon { background: rgba(239,68,68,0.15); }
+        .kpi-emails .kpi-icon { background: rgba(139,92,246,0.15); }
+        .kpi-pdfs .kpi-icon { background: rgba(34,197,94,0.15); }
+        .kpi-gap .kpi-icon { background: rgba(245,158,11,0.15); }
+        .kpi-gbp .kpi-icon { background: rgba(6,182,212,0.15); }
+        .kpi-value { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+        .kpi-label { font-size: 12px; color: var(--text-secondary); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+        .kpi-sub { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+
+        /* ===== CHARTS ===== */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+        }
+        .chart-card h3 { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 16px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .chart-container { position: relative; height: 200px; }
+
+        /* ===== PIPELINE TRACKER ===== */
+        .pipeline-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .pipeline-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+        }
+        .pipeline-header h2 { font-size: 18px; font-weight: 700; }
+        .pipeline-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+        .pipeline-steps {
+            display: flex;
+            gap: 0;
+            overflow-x: auto;
+            padding: 8px 0;
+        }
+        .pipeline-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 100px;
+            flex: 1;
+            position: relative;
+        }
+        .pipeline-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 18px;
+            left: 50%;
+            width: 100%;
+            height: 2px;
+            background: var(--border);
+            z-index: 0;
+        }
+        .pipeline-step.step-done:not(:last-child)::after { background: var(--accent-green); }
+        .pipeline-step.step-running:not(:last-child)::after {
+            background: linear-gradient(90deg, var(--accent-green), var(--accent-blue));
+            animation: pulseLine 1.5s ease-in-out infinite;
+        }
+        @keyframes pulseLine { 0%,100% { opacity: 0.5; } 50% { opacity: 1; } }
+        .step-circle {
+            width: 36px; height: 36px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 13px; font-weight: 700;
+            border: 2px solid var(--border);
+            background: var(--bg-primary);
+            color: var(--text-muted);
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+        .step-done .step-circle {
+            background: var(--accent-green);
+            border-color: var(--accent-green);
+            color: #fff;
+        }
+        .step-running .step-circle {
+            border-color: var(--accent-blue);
+            color: var(--accent-blue);
+            animation: pulseCircle 1.5s ease-in-out infinite;
+            box-shadow: 0 0 12px rgba(59,130,246,0.4);
+        }
+        @keyframes pulseCircle { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+        .step-error .step-circle {
+            background: var(--accent-red);
+            border-color: var(--accent-red);
+            color: #fff;
+        }
+        .step-label {
+            font-size: 10px; color: var(--text-muted);
+            margin-top: 8px; text-align: center;
+            font-weight: 500;
+        }
+        .step-done .step-label { color: var(--accent-green); }
+        .step-running .step-label { color: var(--accent-blue); }
+        .step-error .step-label { color: var(--accent-red); }
+
+        .pipeline-status-bar {
+            margin-top: 16px; padding: 10px 16px; border-radius: var(--radius-sm);
+            font-size: 13px; display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .pipeline-status-bar.show { display: block; }
+        .pipeline-status-running { background: rgba(59,130,246,0.1); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+        .pipeline-status-done { background: rgba(34,197,94,0.1); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+        .pipeline-status-error { background: rgba(239,68,68,0.1); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+
+        /* ===== CONTROL PANEL ===== */
+        .control-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .control-card h2 { font-size: 16px; font-weight: 600; margin-bottom: 16px; }
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 16px;
+        }
+        .control-item { display: flex; flex-direction: column; gap: 6px; }
+        .control-item label {
+            font-size: 11px; color: var(--text-secondary); font-weight: 600;
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .control-item input, .control-item select {
+            padding: 10px 14px; border-radius: var(--radius-sm);
+            border: 1px solid var(--border); background: var(--bg-input);
+            color: var(--text-primary); font-size: 13px; font-family: inherit;
+            transition: border-color 0.2s;
+        }
+        .control-item input:focus, .control-item select:focus {
+            outline: none; border-color: var(--accent-purple);
+            box-shadow: 0 0 0 3px rgba(139,92,246,0.15);
+        }
+        .control-actions {
+            display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap;
+            margin-top: 12px;
+        }
+        #control-msg {
+            font-size: 12px; margin-top: 12px; display: none;
+            padding: 8px 14px; border-radius: var(--radius-sm);
+            animation: fadeIn 0.3s ease;
+        }
+
+        /* ===== BUTTONS ===== */
+        .btn {
+            padding: 8px 18px; border: none; border-radius: var(--radius-sm);
+            font-size: 12px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s ease; font-family: inherit;
+            display: inline-flex; align-items: center; gap: 6px;
+        }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .btn-primary { background: var(--accent-purple); color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: #7c3aed; transform: translateY(-1px); }
+        .btn-green { background: var(--accent-green); color: #fff; }
+        .btn-green:hover:not(:disabled) { background: #16a34a; }
+        .btn-blue { background: var(--accent-blue); color: #fff; }
+        .btn-blue:hover:not(:disabled) { background: #2563eb; }
+        .btn-danger { background: var(--accent-red); color: #fff; }
+        .btn-danger:hover:not(:disabled) { background: #dc2626; }
+        .btn-ghost { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+        .btn-ghost:hover { border-color: var(--border-hover); color: var(--text-primary); }
+        .btn-csv { background: #6366f1; color: #fff; font-size: 11px; }
+        .btn-csv:hover { background: #4f46e5; }
+        .btn-excel { background: #0ea5e9; color: #fff; font-size: 11px; }
+        .btn-excel:hover { background: #0284c7; }
+
+        /* ===== TOOL CARDS ===== */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 20px;
+            transition: border-color 0.2s;
+        }
+        .card:hover { border-color: var(--border-hover); }
+        .card-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 16px; flex-wrap: wrap; gap: 12px;
+        }
+        .card-header h2 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .tool-num {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 26px; height: 26px; border-radius: 8px;
+            font-size: 12px; font-weight: 700;
+            background: rgba(99,102,241,0.1); color: #818cf8;
+        }
+        .btn-group { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+        /* Status bar */
+        .status-bar {
+            margin-bottom: 14px; padding: 10px 16px; border-radius: var(--radius-sm);
+            font-size: 13px; display: none;
+            animation: fadeIn 0.3s ease;
+        }
+        .status-bar.show { display: block; }
+        .status-running { background: rgba(59,130,246,0.1); color: #93c5fd; border: 1px solid rgba(59,130,246,0.3); }
+        .status-done { background: rgba(34,197,94,0.1); color: #86efac; border: 1px solid rgba(34,197,94,0.3); }
+        .status-error { background: rgba(239,68,68,0.1); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+
+        /* Summary badges */
+        .summary { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+        .badge {
+            padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+            display: inline-flex; align-items: center; gap: 4px;
+        }
+        .badge-hot { background: rgba(239,68,68,0.15); color: #fca5a5; }
+        .badge-warm { background: rgba(245,158,11,0.15); color: #fcd34d; }
+        .badge-cold { background: rgba(59,130,246,0.15); color: #93c5fd; }
+        .badge-total { background: rgba(100,116,139,0.15); color: var(--text-secondary); }
+        .badge-green { background: rgba(34,197,94,0.15); color: #86efac; }
+        .badge-purple { background: rgba(139,92,246,0.15); color: #c4b5fd; }
+
+        /* Filter tabs */
+        .filter-tabs { display: flex; gap: 4px; margin-bottom: 14px; flex-wrap: wrap; }
+        .filter-tab {
+            padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border);
+            background: transparent; color: var(--text-muted);
+            font-size: 11px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; font-family: inherit;
+        }
+        .filter-tab.active { background: var(--accent-purple); color: #fff; border-color: var(--accent-purple); }
+        .filter-tab:hover:not(.active) { border-color: var(--border-hover); color: var(--text-secondary); }
+
+        /* Search box */
+        .search-box {
+            margin-bottom: 14px; position: relative;
+        }
+        .search-box input {
+            width: 100%; max-width: 320px;
+            padding: 8px 14px 8px 36px;
+            border-radius: var(--radius-sm); border: 1px solid var(--border);
+            background: var(--bg-input); color: var(--text-primary);
+            font-size: 13px; font-family: inherit;
+        }
+        .search-box input:focus { outline: none; border-color: var(--accent-purple); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
+        .search-box::before {
+            content: '\1F50D'; position: absolute;
+            left: 10px; top: 50%; transform: translateY(-50%);
+            font-size: 14px; opacity: 0.4;
+        }
+
+        /* Table */
+        .table-wrap {
+            overflow-x: auto; max-height: 450px; overflow-y: auto;
+            border-radius: var(--radius-sm); border: 1px solid var(--border);
+        }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        thead { position: sticky; top: 0; z-index: 1; }
+        th {
+            background: #1a2332; color: var(--text-secondary); padding: 10px 12px;
+            text-align: left; white-space: nowrap; font-weight: 600;
+            font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;
+            border-bottom: 1px solid var(--border);
+        }
+        td {
+            padding: 9px 12px; border-top: 1px solid rgba(30,41,59,0.5);
+            color: var(--text-secondary); white-space: nowrap;
+        }
+        tr { transition: background 0.15s; }
+        tr:hover td { background: rgba(30,41,59,0.5); }
+        td a { color: var(--accent-blue); text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+
+        /* Label pills */
+        .label { padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; display: inline-block; }
+        .label-HOT { background: rgba(239,68,68,0.15); color: #fca5a5; }
+        .label-WARM { background: rgba(245,158,11,0.15); color: #fcd34d; }
+        .label-COLD { background: rgba(59,130,246,0.15); color: #93c5fd; }
+
+        .ads-yes { color: var(--accent-yellow); font-weight: 600; }
+        .ads-no { color: var(--accent-green); font-weight: 600; }
+        .ads-unknown { color: var(--text-muted); }
+
+        .quality-BAD { background: rgba(239,68,68,0.15); color: #fca5a5; }
+        .quality-BASIC { background: rgba(245,158,11,0.15); color: #fcd34d; }
+        .quality-GOOD { background: rgba(34,197,94,0.15); color: #86efac; }
+        .check-true { color: var(--accent-green); }
+        .check-false { color: var(--accent-red); }
+
+        .email-VALID { background: rgba(34,197,94,0.15); color: #86efac; }
+        .email-CATCH-ALL { background: rgba(245,158,11,0.15); color: #fcd34d; }
+        .email-INVALID { background: rgba(239,68,68,0.15); color: #fca5a5; }
+        .email-NO_MX { background: rgba(239,68,68,0.15); color: #fca5a5; }
+        .email-UNKNOWN { background: rgba(100,116,139,0.15); color: var(--text-secondary); }
+
+        .gbp-POOR { background: rgba(239,68,68,0.15); color: #fca5a5; }
+        .gbp-AVERAGE { background: rgba(245,158,11,0.15); color: #fcd34d; }
+        .gbp-STRONG { background: rgba(34,197,94,0.15); color: #86efac; }
+
+        .score-bar { display: inline-block; height: 6px; border-radius: 3px; background: rgba(51,65,85,0.5); width: 60px; position: relative; vertical-align: middle; margin-left: 6px; }
+        .score-fill { height: 100%; border-radius: 3px; position: absolute; left: 0; top: 0; transition: width 0.5s ease; }
+
+        .urgency-LOW { background: rgba(34,197,94,0.15); color: #86efac; }
+        .urgency-MEDIUM { background: rgba(245,158,11,0.15); color: #fcd34d; }
+        .urgency-HIGH { background: rgba(239,68,68,0.15); color: #fca5a5; }
+
+        .empty-state { padding: 40px; text-align: center; color: var(--text-muted); font-size: 13px; }
+
+        /* Email modal */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); z-index: 200;
+            align-items: center; justify-content: center;
+            animation: fadeIn 0.2s ease;
+        }
+        .modal-overlay.show { display: flex; }
+        .modal-box {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: var(--radius); padding: 24px;
+            max-width: 550px; width: 90%; max-height: 80vh; overflow-y: auto;
+        }
+        .modal-box h3 { font-size: 16px; margin-bottom: 16px; }
+        .modal-box pre {
+            font-family: inherit; white-space: pre-wrap;
+            font-size: 13px; color: var(--text-secondary); line-height: 1.6;
+        }
+        .modal-close {
+            margin-top: 16px; padding: 8px 20px; border-radius: var(--radius-sm);
+            background: var(--accent-purple); color: #fff; border: none;
+            cursor: pointer; font-weight: 600; font-size: 12px; font-family: inherit;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-in { animation: slideUp 0.4s ease forwards; }
+
+        /* Filtered download buttons */
+        .dl-filters {
+            display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px;
+            border-top: 1px solid var(--border);
+        }
+        .dl-filters-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+            color: var(--text-muted); font-weight: 600; width: 100%; margin-bottom: 2px;
+        }
+        .btn-dl {
+            padding: 4px 12px; border: none; border-radius: 20px;
+            font-size: 10px; font-weight: 700; cursor: pointer;
+            transition: all 0.2s; font-family: inherit;
+            display: inline-flex; align-items: center; gap: 4px;
+            text-decoration: none;
+        }
+        .btn-dl:hover { transform: translateY(-1px); filter: brightness(1.15); }
+        .btn-dl-hot { background: rgba(239,68,68,0.2); color: #fca5a5; }
+        .btn-dl-warm { background: rgba(245,158,11,0.2); color: #fcd34d; }
+        .btn-dl-cold { background: rgba(59,130,246,0.2); color: #93c5fd; }
+        .btn-dl-green { background: rgba(34,197,94,0.2); color: #86efac; }
+        .btn-dl-purple { background: rgba(139,92,246,0.2); color: #c4b5fd; }
+        .btn-dl-cyan { background: rgba(6,182,212,0.2); color: #67e8f9; }
+
+        /* Smart Export card */
+        .smart-export-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .smart-export-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan), var(--accent-green));
+        }
+        .smart-export-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .smart-export-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .smart-export-grid select {
+            padding: 8px 12px; border-radius: var(--radius-sm);
+            border: 1px solid var(--border); background: var(--bg-input);
+            color: var(--text-primary); font-size: 12px; font-family: inherit;
+        }
+        .smart-export-grid select:focus { outline: none; border-color: var(--accent-purple); }
+        .smart-export-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); font-weight: 600; margin-bottom: 4px; }
+        .smart-export-item { display: flex; flex-direction: column; }
+        #smart-export-msg {
+            font-size: 12px; margin-top: 8px; display: none;
+            padding: 8px 14px; border-radius: var(--radius-sm);
+        }
+
+        /* ===== BEST LEADS ENGINE ===== */
+        .best-leads-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+        .best-leads-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #ef4444, #f97316, #f59e0b);
+        }
+        .best-leads-card h2 { font-size: 16px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .best-leads-toggles {
+            display: flex; gap: 16px; flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .toggle-item {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 12px; font-weight: 600; color: var(--text-secondary);
+            cursor: pointer; user-select: none;
+        }
+        .toggle-switch {
+            position: relative; width: 36px; height: 20px;
+            background: var(--border); border-radius: 10px;
+            transition: background 0.2s; cursor: pointer;
+        }
+        .toggle-switch.active { background: var(--accent-green); }
+        .toggle-switch::after {
+            content: '';
+            position: absolute; top: 2px; left: 2px;
+            width: 16px; height: 16px; border-radius: 50%;
+            background: #fff; transition: transform 0.2s;
+        }
+        .toggle-switch.active::after { transform: translateX(16px); }
+        .best-leads-actions {
+            display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+            margin-bottom: 16px;
+        }
+        .best-leads-count {
+            font-size: 14px; font-weight: 700; color: var(--text-primary);
+            padding: 6px 16px; border-radius: 20px;
+            background: rgba(239,68,68,0.15); color: #fca5a5;
+            display: none; align-items: center; gap: 6px;
+        }
+        .best-leads-count.show { display: inline-flex; }
+        #best-leads-msg {
+            font-size: 12px; display: none;
+            padding: 8px 14px; border-radius: var(--radius-sm);
+            margin-bottom: 12px;
+        }
+        .best-leads-loading {
+            display: none; align-items: center; gap: 8px;
+            font-size: 12px; color: var(--text-muted);
+        }
+        .best-leads-loading.show { display: inline-flex; }
+        .best-leads-loading .spinner {
+            width: 14px; height: 14px; border: 2px solid var(--border);
+            border-top-color: var(--accent-red); border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-left">
+            <div class="header-logo">G</div>
+            <h1>Garage<span>Leads</span>Pro</h1>
+        </div>
+        <div class="header-right">
+            <span class="header-badge">v2.0 SaaS</span>
+        </div>
+    </div>
+
+    <div class="container">
+
+        <!-- KPI CARDS -->
+        <div class="kpi-grid animate-in" id="kpi-grid">
+            <div class="kpi-card kpi-leads">
+                <div class="kpi-icon">&#x1F4CA;</div>
+                <div class="kpi-value" id="kpi-total">{{ raw_data|length if raw_data else 0 }}</div>
+                <div class="kpi-label">Total Leads</div>
+                <div class="kpi-sub" id="kpi-total-sub">scraped from Google Maps</div>
+            </div>
+            <div class="kpi-card kpi-hot">
+                <div class="kpi-icon">&#x1F525;</div>
+                <div class="kpi-value" id="kpi-hot">{% if scored_data %}{{ scored_data|selectattr("prospect_label","equalto","HOT")|list|length }}{% else %}0{% endif %}</div>
+                <div class="kpi-label">HOT Prospects</div>
+                <div class="kpi-sub" id="kpi-hot-sub">low reviews, high opportunity</div>
+            </div>
+            <div class="kpi-card kpi-emails">
+                <div class="kpi-icon">&#x2709;</div>
+                <div class="kpi-value" id="kpi-emails">{{ emails_data|length if emails_data else 0 }}</div>
+                <div class="kpi-label">Emails Ready</div>
+                <div class="kpi-sub">personalised cold outreach</div>
+            </div>
+            <div class="kpi-card kpi-pdfs">
+                <div class="kpi-icon">&#x1F4C4;</div>
+                <div class="kpi-value" id="kpi-pdfs">{{ audit_files|length if audit_files else 0 }}</div>
+                <div class="kpi-label">PDF Audits</div>
+                <div class="kpi-sub">ready to send</div>
+            </div>
+            <div class="kpi-card kpi-gap">
+                <div class="kpi-icon">&#x26A1;</div>
+                <div class="kpi-value" id="kpi-gap">{% if competitor_data %}{{ ((competitor_data|sum(attribute='competitive_gap_score')) / (competitor_data|length))|round(1) }}{% else %}0{% endif %}</div>
+                <div class="kpi-label">Avg Gap Score</div>
+                <div class="kpi-sub">out of 10</div>
+            </div>
+            <div class="kpi-card kpi-gbp">
+                <div class="kpi-icon">&#x1F310;</div>
+                <div class="kpi-value" id="kpi-gbp">{% if gbp_data %}{{ ((gbp_data|sum(attribute='gbp_score')) / (gbp_data|length))|round(1) }}{% else %}0{% endif %}</div>
+                <div class="kpi-label">Avg GBP Score</div>
+                <div class="kpi-sub">out of 100</div>
+            </div>
+        </div>
+
+        <!-- BEST LEADS ENGINE -->
+        <div class="best-leads-card animate-in">
+            <h2>&#x1F525; Super Filter Engine — Best Leads</h2>
+            <div class="best-leads-toggles">
+                <label class="toggle-item">
+                    <div class="toggle-switch active" id="bl-hot" onclick="toggleBL(this)"></div>
+                    HOT Only
+                </label>
+                <label class="toggle-item">
+                    <div class="toggle-switch active" id="bl-no-ads" onclick="toggleBL(this)"></div>
+                    No Ads
+                </label>
+                <label class="toggle-item">
+                    <div class="toggle-switch active" id="bl-bad-site" onclick="toggleBL(this)"></div>
+                    Bad/Basic Website
+                </label>
+                <label class="toggle-item">
+                    <div class="toggle-switch active" id="bl-high-roi" onclick="toggleBL(this)"></div>
+                    High ROI (&ge;30)
+                </label>
+                <label class="toggle-item">
+                    <div class="toggle-switch active" id="bl-high-gap" onclick="toggleBL(this)"></div>
+                    High Gap (&ge;7)
+                </label>
+            </div>
+            <div class="best-leads-actions">
+                <button class="btn btn-primary" id="btn-best-leads" onclick="generateBestLeads()" style="background:linear-gradient(135deg,#ef4444,#f97316);">
+                    &#x1F525; Generate Best Leads
+                </button>
+                <a class="btn btn-csv" id="btn-dl-best" style="display:none;" onclick="downloadBestLeads()">Download Best Leads CSV</a>
+                <span class="best-leads-count" id="best-leads-count">&#x1F525; Best Leads: <span id="bl-count-num">0</span></span>
+                <span class="best-leads-loading" id="best-leads-loading"><span class="spinner"></span> Filtering...</span>
+            </div>
+            <div id="best-leads-msg"></div>
+            <div class="table-wrap" id="best-leads-table-wrap" style="display:none;">
+                <table id="best-leads-table">
+                    <thead><tr><th>#</th><th>Business</th><th>City</th><th>Label</th><th>Ads</th><th>Website</th><th>ROI</th><th>Gap</th><th>Monthly Value</th><th>Email</th><th>Phone</th></tr></thead>
+                    <tbody id="best-leads-tbody"></tbody>
+                </table>
+            </div>
+            <div class="empty-state" id="best-leads-empty" {% if best_leads_data %}style="display:none"{% endif %}>
+                Click "Generate Best Leads" to find your highest-quality prospects.
+            </div>
+        </div>
+
+        <!-- CHARTS -->
+        <div class="charts-grid animate-in">
+            <div class="chart-card">
+                <h3>Prospect Breakdown</h3>
+                <div class="chart-container"><canvas id="chart-prospects"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3>Website Quality</h3>
+                <div class="chart-container"><canvas id="chart-websites"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3>Leads by City</h3>
+                <div class="chart-container"><canvas id="chart-cities"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <h3>Competitive Urgency</h3>
+                <div class="chart-container"><canvas id="chart-urgency"></canvas></div>
+            </div>
+        </div>
+
+        <!-- PIPELINE TRACKER -->
+        <div class="pipeline-card animate-in">
+            <div class="pipeline-header">
+                <h2>Pipeline Control</h2>
+                <div class="pipeline-actions">
+                    <button class="btn btn-primary" id="btn-pipeline" onclick="runPipeline()">
+                        &#x25B6; Run Full Pipeline
+                    </button>
+                    <button class="btn btn-danger" onclick="clearOutput()">Clear All Data</button>
+                </div>
+            </div>
+
+            <div class="pipeline-steps" id="pipeline-steps">
+                <div class="pipeline-step" data-tool="tool1" id="ps-tool1">
+                    <div class="step-circle">1</div>
+                    <div class="step-label">Scraper</div>
+                </div>
+                <div class="pipeline-step" data-tool="tool2" id="ps-tool2">
+                    <div class="step-circle">2</div>
+                    <div class="step-label">Scorer</div>
+                </div>
+                <div class="pipeline-step" data-tool="tool3" id="ps-tool3">
+                    <div class="step-circle">3</div>
+                    <div class="step-label">Ads</div>
+                </div>
+                <div class="pipeline-step" data-tool="tool4" id="ps-tool4">
+                    <div class="step-circle">4</div>
+                    <div class="step-label">Website</div>
+                </div>
+                <div class="pipeline-step" data-tool="tool5" id="ps-tool5">
+                    <div class="step-circle">5</div>
+                    <div class="step-label">Contacts</div>
+                </div>
+                <div class="pipeline-step" data-tool="tool6" id="ps-tool6">
+                    <div class="step-circle">6</div>
+                    <div class="step-label">GBP</div>
+                </div>
+                <div class="pipeline-step" data-tool="tool7" id="ps-tool7">
+                    <div class="step-circle">7</div>
+                    <div class="step-label">Compete</div>
+                </div>
+                <div class="pipeline-step" data-tool="tool8" id="ps-tool8">
+                    <div class="step-circle">8</div>
+                    <div class="step-label">Value</div>
+                </div>
+                <div class="pipeline-step" data-tool="tool9" id="ps-tool9">
+                    <div class="step-circle">9</div>
+                    <div class="step-label">Emails</div>
+                </div>
+                <div class="pipeline-step" data-tool="tool10" id="ps-tool10">
+                    <div class="step-circle">10</div>
+                    <div class="step-label">PDFs</div>
+                </div>
+            </div>
+
+            <div class="pipeline-status-bar" id="status-pipeline"></div>
+        </div>
+
+        <!-- CONFIGURATION -->
+        <div class="control-card animate-in">
+            <h2>Configuration</h2>
+            <div class="control-grid">
+                <div class="control-item">
+                    <label>Target Cities (comma separated)</label>
+                    <input type="text" id="cities-input" value="{{ current_cities }}" placeholder="Columbus Ohio, Nashville Tennessee">
+                </div>
+                <div class="control-item">
+                    <label>Service Type</label>
+                    <select id="service-select">
+                        <option value="garage door repair" {% if active_service == 'garage door repair' %}selected{% endif %}>Garage Door Repair</option>
+                        <option value="plumber" {% if active_service == 'plumber' %}selected{% endif %}>Plumber</option>
+                        <option value="electrician" {% if active_service == 'electrician' %}selected{% endif %}>Electrician</option>
+                    </select>
+                </div>
+                <div class="control-item">
+                    <label>Run Individual Tool</label>
+                    <select id="single-tool-select">
+                        <option value="tool1">Tool 1 - Scraper</option>
+                        <option value="tool2">Tool 2 - Review Scorer</option>
+                        <option value="tool3">Tool 3 - Ads Checker</option>
+                        <option value="tool4">Tool 4 - Website Checker</option>
+                        <option value="tool5">Tool 5 - Contact Finder</option>
+                        <option value="tool6">Tool 6 - GBP Analyser</option>
+                        <option value="tool7">Tool 7 - Competitor Intel</option>
+                        <option value="tool8">Tool 8 - Value Calculator</option>
+                        <option value="tool9">Tool 9 - Email Personaliser</option>
+                        <option value="tool10">Tool 10 - PDF Generator</option>
+                    </select>
+                </div>
+            </div>
+            <div class="control-actions">
+                <button class="btn btn-green" onclick="saveCities()">Save Locations</button>
+                <button class="btn btn-blue" onclick="saveService()">Set Service</button>
+                <button class="btn btn-primary" onclick="runSelectedTool()">Run Selected Tool</button>
+            </div>
+            <div id="control-msg"></div>
+        </div>
+
+        <!-- SMART EXPORT -->
+        <div class="smart-export-card animate-in">
+            <h2><span class="tool-num" style="background:rgba(6,182,212,0.15);color:#67e8f9;">&#x2B50;</span> Smart Export — Cross-Tool Filter</h2>
+            <div class="smart-export-grid">
+                <div class="smart-export-item">
+                    <div class="smart-export-label">Prospect Label</div>
+                    <select id="se-label">
+                        <option value="">Any</option>
+                        <option value="HOT">HOT</option>
+                        <option value="WARM">WARM</option>
+                        <option value="COLD">COLD</option>
+                    </select>
+                </div>
+                <div class="smart-export-item">
+                    <div class="smart-export-label">Ads Running</div>
+                    <select id="se-ads">
+                        <option value="">Any</option>
+                        <option value="NO">No Ads</option>
+                        <option value="YES">Running Ads</option>
+                    </select>
+                </div>
+                <div class="smart-export-item">
+                    <div class="smart-export-label">Website Quality</div>
+                    <select id="se-quality">
+                        <option value="">Any</option>
+                        <option value="BAD">BAD</option>
+                        <option value="BASIC">BASIC</option>
+                        <option value="GOOD">GOOD</option>
+                    </select>
+                </div>
+                <div class="smart-export-item">
+                    <div class="smart-export-label">Min Gap Score</div>
+                    <select id="se-gap">
+                        <option value="">Any</option>
+                        <option value="7">7+ (HIGH)</option>
+                        <option value="5">5+ (MEDIUM+)</option>
+                        <option value="4">4+</option>
+                    </select>
+                </div>
+                <div class="smart-export-item">
+                    <div class="smart-export-label">Min ROI Score</div>
+                    <select id="se-roi">
+                        <option value="">Any</option>
+                        <option value="30">30+ (HIGH)</option>
+                        <option value="20">20+ (MEDIUM+)</option>
+                        <option value="15">15+</option>
+                    </select>
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="smartExport()" style="background:linear-gradient(135deg,var(--accent-purple),var(--accent-cyan));">
+                Download Smart Export CSV
+            </button>
+            <div id="smart-export-msg"></div>
+        </div>
+
+        <!-- TOOL 1: Scraper -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h2><span class="tool-num">1</span> Google Maps Scraper</h2>
+                <div class="btn-group">
+                    <button class="btn btn-green" id="btn-run-t1" onclick="runTool('tool1')">Run Scraper</button>
+                    {% if raw_data %}
+                    <a class="btn btn-csv" href="/download/tool1/csv">CSV</a>
+                    <a class="btn btn-excel" href="/download/tool1/excel">Excel</a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="status-bar" id="status-tool1"></div>
+            {% if raw_data %}
+            <div class="summary">
+                <span class="badge badge-total">{{ raw_data|length }} companies</span>
+            </div>
+            <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'raw-table')"></div>
+            <div class="table-wrap">
+                <table id="raw-table">
+                    <thead><tr><th>#</th><th>Business Name</th><th>Phone</th><th>Website</th><th>Address</th><th>Rating</th><th>Reviews</th><th>City</th></tr></thead>
+                    <tbody>{% for row in raw_data %}<tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ row.business_name or '---' }}</td>
+                        <td>{{ row.phone or '---' }}</td>
+                        <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                        <td>{{ row.address or '---' }}</td>
+                        <td>{{ row.rating or '---' }}</td>
+                        <td>{{ row.review_count if row.review_count == row.review_count else '---' }}</td>
+                        <td>{{ row.city or '---' }}</td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No data yet. Click "Run Scraper" to start collecting leads.</div>
+            {% endif %}
+        </div>
+
+        <!-- TOOL 2: Scorer -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h2><span class="tool-num">2</span> Review Scorer</h2>
+                <div class="btn-group">
+                    <button class="btn btn-green" id="btn-run-t2" onclick="runTool('tool2')">Run Scorer</button>
+                    {% if scored_data %}
+                    <a class="btn btn-csv" href="/download/tool2/csv">CSV</a>
+                    <a class="btn btn-excel" href="/download/tool2/excel">Excel</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% if scored_data %}
+            <div class="dl-filters">
+                <span class="dl-filters-label">Download Filtered</span>
+                <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool2&filter=hot" title="Download only HOT prospects">HOT CSV</a>
+                <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool2&filter=warm" title="Download only WARM prospects">WARM CSV</a>
+                <a class="btn-dl btn-dl-cold" href="/download_filtered?tool=tool2&filter=cold" title="Download only COLD prospects">COLD CSV</a>
+            </div>
+            {% endif %}
+            <div class="status-bar" id="status-tool2"></div>
+            {% if scored_data %}
+            {% set hot_count = scored_data|selectattr("prospect_label","equalto","HOT")|list|length %}
+            {% set warm_count = scored_data|selectattr("prospect_label","equalto","WARM")|list|length %}
+            {% set cold_count = scored_data|selectattr("prospect_label","equalto","COLD")|list|length %}
+            <div class="summary">
+                <span class="badge badge-hot">HOT: {{ hot_count }}</span>
+                <span class="badge badge-warm">WARM: {{ warm_count }}</span>
+                <span class="badge badge-cold">COLD: {{ cold_count }}</span>
+                <span class="badge badge-total">Total: {{ scored_data|length }}</span>
+            </div>
+            <div class="filter-tabs">
+                <button class="filter-tab active" onclick="filterTable('all', this)">All</button>
+                <button class="filter-tab" onclick="filterTable('HOT', this)">HOT</button>
+                <button class="filter-tab" onclick="filterTable('WARM', this)">WARM</button>
+                <button class="filter-tab" onclick="filterTable('COLD', this)">COLD</button>
+            </div>
+            <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'scored-table')"></div>
+            <div class="table-wrap">
+                <table id="scored-table">
+                    <thead><tr><th>#</th><th>Business Name</th><th>Phone</th><th>Website</th><th>Address</th><th>Rating</th><th>Reviews</th><th>City</th><th>Score</th><th>Label</th></tr></thead>
+                    <tbody>{% for row in scored_data %}<tr data-label="{{ row.prospect_label }}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ row.business_name or '---' }}</td>
+                        <td>{{ row.phone or '---' }}</td>
+                        <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                        <td>{{ row.address or '---' }}</td>
+                        <td>{{ row.rating or '---' }}</td>
+                        <td>{{ row.review_count if row.review_count == row.review_count else '---' }}</td>
+                        <td>{{ row.city or '---' }}</td>
+                        <td>{{ row.review_score }}</td>
+                        <td><span class="label label-{{ row.prospect_label }}">{{ row.prospect_label }}</span></td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No scored data yet. Run Tool 1 first, then click "Run Scorer".</div>
+            {% endif %}
+        </div>
+
+        <!-- TOOL 3: Ads Checker -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h2><span class="tool-num">3</span> Ads Checker</h2>
+                <div class="btn-group">
+                    <button class="btn btn-green" id="btn-run-t3" onclick="runTool('tool3')">Run Ads Checker</button>
+                    {% if ads_data %}
+                    <a class="btn btn-csv" href="/download/tool3/csv">CSV</a>
+                    <a class="btn btn-excel" href="/download/tool3/excel">Excel</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% if ads_data %}
+            <div class="dl-filters">
+                <span class="dl-filters-label">Download Filtered</span>
+                <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool3&filter=hot_no_ads" title="Download HOT prospects with NO ads">HOT + No Ads</a>
+                <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool3&filter=no_ads" title="Download all with NO ads running">No Ads</a>
+                <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool3&filter=running_ads" title="Download all running ads">Running Ads</a>
+            </div>
+            {% endif %}
+            <div class="status-bar" id="status-tool3"></div>
+            {% if ads_data %}
+            {% set hot_no_ads = ads_data|selectattr("prospect_label","equalto","HOT")|selectattr("ads_running","equalto","NO")|list|length %}
+            {% set ads_yes = ads_data|selectattr("ads_running","equalto","YES")|list|length %}
+            {% set ads_no = ads_data|selectattr("ads_running","equalto","NO")|list|length %}
+            <div class="summary">
+                <span class="badge badge-hot">HOT + No Ads: {{ hot_no_ads }}</span>
+                <span class="badge badge-warm">Running Ads: {{ ads_yes }}</span>
+                <span class="badge badge-green">No Ads: {{ ads_no }}</span>
+                <span class="badge badge-total">Total: {{ ads_data|length }}</span>
+            </div>
+            <div class="filter-tabs" id="ads-filter-tabs">
+                <button class="filter-tab active" onclick="filterAdsTable('all', this)">All</button>
+                <button class="filter-tab" onclick="filterAdsTable('NO', this)">No Ads</button>
+                <button class="filter-tab" onclick="filterAdsTable('YES', this)">Running Ads</button>
+                <button class="filter-tab" onclick="filterAdsTable('HOT', this)">HOT Only</button>
+            </div>
+            <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'ads-table')"></div>
+            <div class="table-wrap">
+                <table id="ads-table">
+                    <thead><tr><th>#</th><th>Business Name</th><th>Phone</th><th>Website</th><th>City</th><th>Reviews</th><th>Label</th><th>Ads?</th><th>Ad Count</th></tr></thead>
+                    <tbody>{% for row in ads_data %}<tr data-ads="{{ row.ads_running }}" data-label="{{ row.prospect_label }}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ row.business_name or '---' }}</td>
+                        <td>{{ row.phone or '---' }}</td>
+                        <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                        <td>{{ row.city or '---' }}</td>
+                        <td>{{ row.review_count if row.review_count == row.review_count else '---' }}</td>
+                        <td><span class="label label-{{ row.prospect_label }}">{{ row.prospect_label }}</span></td>
+                        <td><span class="ads-{{ row.ads_running|lower }}">{{ row.ads_running }}</span></td>
+                        <td>{{ row.ads_count }}</td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No ads data yet. Run Tool 2 first, then click "Run Ads Checker".</div>
+            {% endif %}
+        </div>
+
+        <!-- TOOL 4: Website Checker -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h2><span class="tool-num">4</span> Website Checker</h2>
+                <div class="btn-group">
+                    <button class="btn btn-green" id="btn-run-t4" onclick="runTool('tool4')">Run Website Checker</button>
+                    {% if website_data %}
+                    <a class="btn btn-csv" href="/download/tool4/csv">CSV</a>
+                    <a class="btn btn-excel" href="/download/tool4/excel">Excel</a>
+                    <a class="btn btn-csv" href="/download/hot/csv" style="background:#ef4444;">HOT CSV</a>
+                    <a class="btn btn-csv" href="/download/warm/csv" style="background:#f59e0b;">WARM CSV</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% if website_data %}
+            <div class="dl-filters">
+                <span class="dl-filters-label">Download by Website Quality</span>
+                <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool4&filter=bad" title="Download BAD quality websites">BAD Sites</a>
+                <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool4&filter=basic" title="Download BASIC quality websites">BASIC Sites</a>
+                <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool4&filter=good" title="Download GOOD quality websites">GOOD Sites</a>
+            </div>
+            {% endif %}
+            <div class="status-bar" id="status-tool4"></div>
+            {% if website_data %}
+            {% set bad_count = website_data|selectattr("website_quality","equalto","BAD")|list|length %}
+            {% set basic_count = website_data|selectattr("website_quality","equalto","BASIC")|list|length %}
+            {% set good_count = website_data|selectattr("website_quality","equalto","GOOD")|list|length %}
+            <div class="summary">
+                <span class="badge badge-hot">BAD: {{ bad_count }}</span>
+                <span class="badge badge-warm">BASIC: {{ basic_count }}</span>
+                <span class="badge badge-green">GOOD: {{ good_count }}</span>
+                <span class="badge badge-total">Total: {{ website_data|length }}</span>
+            </div>
+            <div class="filter-tabs" id="website-filter-tabs">
+                <button class="filter-tab active" onclick="filterWebsiteTable('all', this)">All</button>
+                <button class="filter-tab" onclick="filterWebsiteTable('BAD', this)">BAD</button>
+                <button class="filter-tab" onclick="filterWebsiteTable('BASIC', this)">BASIC</button>
+                <button class="filter-tab" onclick="filterWebsiteTable('GOOD', this)">GOOD</button>
+                <button class="filter-tab" onclick="filterWebsiteTable('HOT', this)">HOT Only</button>
+            </div>
+            <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'website-table')"></div>
+            <div class="table-wrap">
+                <table id="website-table">
+                    <thead><tr><th>#</th><th>Business</th><th>Phone</th><th>City</th><th>Label</th><th>Quality</th><th>Score</th><th>Speed</th><th>Mobile</th><th>Phone Link</th><th>Form</th><th>Booking</th><th>HTTPS</th><th>Platform</th></tr></thead>
+                    <tbody>{% for row in website_data %}<tr data-quality="{{ row.website_quality }}" data-label="{{ row.prospect_label }}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ row.business_name or '---' }}</td>
+                        <td>{{ row.phone or '---' }}</td>
+                        <td>{{ row.city or '---' }}</td>
+                        <td><span class="label label-{{ row.prospect_label }}">{{ row.prospect_label }}</span></td>
+                        <td><span class="label quality-{{ row.website_quality }}">{{ row.website_quality }}</span></td>
+                        <td>{{ row.website_score }}/10</td>
+                        <td>{{ row.load_speed if row.load_speed == row.load_speed else '---' }}s</td>
+                        <td class="check-{{ row.has_mobile|string|lower }}">{{ 'Yes' if row.has_mobile else 'No' }}</td>
+                        <td class="check-{{ row.has_phone|string|lower }}">{{ 'Yes' if row.has_phone else 'No' }}</td>
+                        <td class="check-{{ row.has_form|string|lower }}">{{ 'Yes' if row.has_form else 'No' }}</td>
+                        <td class="check-{{ row.has_booking|string|lower }}">{{ 'Yes' if row.has_booking else 'No' }}</td>
+                        <td class="check-{{ row.has_https|string|lower }}">{{ 'Yes' if row.has_https else 'No' }}</td>
+                        <td>{{ row.platform }}</td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No website data yet. Run Tool 3 first, then click "Run Website Checker".</div>
+            {% endif %}
+        </div>
+
+        <!-- TOOL 5: Contact Finder -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h2><span class="tool-num">5</span> Contact Finder</h2>
+                <div class="btn-group">
+                    <button class="btn btn-green" id="btn-run-t5" onclick="runTool('tool5')">Run Contact Finder</button>
+                    {% if contacts_data %}
+                    <a class="btn btn-csv" href="/download/tool5/csv">CSV</a>
+                    <a class="btn btn-excel" href="/download/tool5/excel">Excel</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% if contacts_data %}
+            <div class="dl-filters">
+                <span class="dl-filters-label">Download Filtered</span>
+                <a class="btn-dl btn-dl-purple" href="/download_filtered?tool=tool5&filter=has_email" title="Download contacts with email addresses">Has Email</a>
+                <a class="btn-dl btn-dl-cyan" href="/download_filtered?tool=tool5&filter=has_owner" title="Download contacts with owner name found">Has Owner Name</a>
+                <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool5&filter=valid_email" title="Download contacts with VALID emails only">VALID Emails</a>
+            </div>
+            {% endif %}
+            <div class="status-bar" id="status-tool5"></div>
+            {% if contacts_data %}
+            {% set name_found = contacts_data|rejectattr("owner_name","equalto","Team")|list|length %}
+            {% set email_found = contacts_data|selectattr("personal_email","defined")|rejectattr("personal_email","none")|list|length %}
+            {% set valid_count = contacts_data|selectattr("email_status","equalto","VALID")|list|length %}
+            {% set catchall_count = contacts_data|selectattr("email_status","equalto","CATCH-ALL")|list|length %}
+            <div class="summary">
+                <span class="badge badge-purple">Names: {{ name_found }}</span>
+                <span class="badge badge-purple">Emails: {{ email_found }}</span>
+                <span class="badge badge-green">VALID: {{ valid_count }}</span>
+                <span class="badge badge-warm">CATCH-ALL: {{ catchall_count }}</span>
+                <span class="badge badge-total">Total: {{ contacts_data|length }}</span>
+            </div>
+            <div class="filter-tabs" id="email-filter-tabs">
+                <button class="filter-tab active" onclick="filterEmailTable('all', this)">All</button>
+                <button class="filter-tab" onclick="filterEmailTable('VALID', this)">VALID</button>
+                <button class="filter-tab" onclick="filterEmailTable('CATCH-ALL', this)">CATCH-ALL</button>
+                <button class="filter-tab" onclick="filterEmailTable('INVALID', this)">INVALID/NO_MX</button>
+                <button class="filter-tab" onclick="filterEmailTable('UNKNOWN', this)">UNKNOWN</button>
+            </div>
+            <div class="search-box"><input type="text" placeholder="Search contacts..." onkeyup="searchTable(this, 'email-table')"></div>
+            <div class="table-wrap">
+                <table id="email-table">
+                    <thead><tr><th>#</th><th>Business</th><th>Owner</th><th>Email</th><th>Status</th><th>Direct Phone</th><th>Phone</th><th>Website</th><th>City</th><th>Quality</th></tr></thead>
+                    <tbody>{% for row in contacts_data %}<tr data-emailstatus="{{ row.email_status if row.email_status else 'UNKNOWN' }}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ row.business_name or '---' }}</td>
+                        <td data-owner="{{ row.owner_name }}">{{ row.owner_name }}</td>
+                        <td>{{ row.personal_email or '---' }}</td>
+                        <td><span class="label email-{{ row.email_status if row.email_status else 'UNKNOWN' }}">{{ row.email_status if row.email_status else 'UNKNOWN' }}</span></td>
+                        <td>{{ row.direct_phone or '---' }}</td>
+                        <td>{{ row.phone or '---' }}</td>
+                        <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                        <td>{{ row.city or '---' }}</td>
+                        <td>{% if row.website_quality %}<span class="label quality-{{ row.website_quality }}">{{ row.website_quality }}</span>{% else %}---{% endif %}</td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No contact data yet. Run Tool 4 first, then click "Run Contact Finder".</div>
+            {% endif %}
+        </div>
+
+        <!-- TOOL 6: GBP Analyser -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h2><span class="tool-num">6</span> GBP Analyser</h2>
+                <div class="btn-group">
+                    <button class="btn btn-green" id="btn-run-t6" onclick="runTool('tool6')">Run GBP Analyser</button>
+                    {% if gbp_data %}
+                    <a class="btn btn-csv" href="/download/tool6/csv">CSV</a>
+                    <a class="btn btn-excel" href="/download/tool6/excel">Excel</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% if gbp_data %}
+            <div class="dl-filters">
+                <span class="dl-filters-label">Download by GBP Score</span>
+                <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool6&filter=poor" title="Download POOR GBP profiles (score &lt; 40)">POOR (&lt;40)</a>
+                <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool6&filter=average" title="Download AVERAGE GBP profiles (40-70)">AVERAGE (40-70)</a>
+                <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool6&filter=strong" title="Download STRONG GBP profiles (score &gt; 70)">STRONG (&gt;70)</a>
+            </div>
+            {% endif %}
+            <div class="status-bar" id="status-tool6"></div>
+            {% if gbp_data %}
+            {% set poor_count = gbp_data|selectattr("gbp_label","equalto","POOR")|list|length %}
+            {% set avg_count = gbp_data|selectattr("gbp_label","equalto","AVERAGE")|list|length %}
+            {% set strong_count = gbp_data|selectattr("gbp_label","equalto","STRONG")|list|length %}
+            <div class="summary">
+                <span class="badge badge-hot">POOR: {{ poor_count }}</span>
+                <span class="badge badge-warm">AVERAGE: {{ avg_count }}</span>
+                <span class="badge badge-green">STRONG: {{ strong_count }}</span>
+                <span class="badge badge-total">Total: {{ gbp_data|length }}</span>
+            </div>
+            <div class="filter-tabs" id="gbp-filter-tabs">
+                <button class="filter-tab active" onclick="filterGbpTable('all', this)">All</button>
+                <button class="filter-tab" onclick="filterGbpTable('POOR', this)">POOR</button>
+                <button class="filter-tab" onclick="filterGbpTable('AVERAGE', this)">AVERAGE</button>
+                <button class="filter-tab" onclick="filterGbpTable('STRONG', this)">STRONG</button>
+            </div>
+            <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'gbp-table')"></div>
+            <div class="table-wrap">
+                <table id="gbp-table">
+                    <thead><tr><th>#</th><th>Business</th><th>City</th><th>GBP Score</th><th>Label</th><th>Photos</th><th>Services</th><th>Desc</th><th>Hours</th><th>Posts</th><th>Reply %</th><th>Email</th><th>Phone</th></tr></thead>
+                    <tbody>{% for row in gbp_data %}<tr data-gbp="{{ row.gbp_label }}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ row.business_name or '---' }}</td>
+                        <td>{{ row.city or '---' }}</td>
+                        <td>
+                            <span style="font-weight:600;">{{ row.gbp_score }}/100</span>
+                            <span class="score-bar"><span class="score-fill" data-w="{{ row.gbp_score }}" data-c="{% if row.gbp_score < 40 %}var(--accent-red){% elif row.gbp_score <= 70 %}var(--accent-yellow){% else %}var(--accent-green){% endif %}"></span></span>
+                        </td>
+                        <td><span class="label gbp-{{ row.gbp_label }}">{{ row.gbp_label }}</span></td>
+                        <td>{{ row.gbp_photos }}</td>
+                        <td>{{ row.gbp_services }}</td>
+                        <td class="check-{{ row.gbp_has_description|string|lower }}">{{ 'Yes' if row.gbp_has_description else 'No' }}</td>
+                        <td class="check-{{ row.gbp_has_hours|string|lower }}">{{ 'Yes' if row.gbp_has_hours else 'No' }}</td>
+                        <td class="check-{{ row.gbp_has_posts|string|lower }}">{{ 'Yes' if row.gbp_has_posts else 'No' }}</td>
+                        <td>{{ (row.gbp_reply_rate * 100)|round|int if row.gbp_reply_rate == row.gbp_reply_rate else 0 }}%</td>
+                        <td>{{ row.personal_email or '---' }}</td>
+                        <td>{{ row.phone or '---' }}</td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No GBP data yet. Run Tool 5 first, then click "Run GBP Analyser".</div>
+            {% endif %}
+        </div>
+
+        <!-- TOOL 7: Competitor Intelligence -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h2><span class="tool-num">7</span> Competitor Intelligence</h2>
+                <div class="btn-group">
+                    <button class="btn btn-green" id="btn-run-t7" onclick="runTool('tool7')">Run Competitor Intel</button>
+                    {% if competitor_data %}
+                    <a class="btn btn-csv" href="/download/tool7/csv">CSV</a>
+                    <a class="btn btn-excel" href="/download/tool7/excel">Excel</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% if competitor_data %}
+            <div class="dl-filters">
+                <span class="dl-filters-label">Download by Gap Score</span>
+                <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool7&filter=high_gap" title="Download HIGH gap prospects (score >= 7)">HIGH Gap (7+)</a>
+                <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool7&filter=medium_gap" title="Download MEDIUM gap prospects (4-6)">MEDIUM Gap (4-6)</a>
+                <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool7&filter=low_gap" title="Download LOW gap prospects (score <= 3)">LOW Gap (1-3)</a>
+            </div>
+            {% endif %}
+            <div class="status-bar" id="status-tool7"></div>
+            {% if competitor_data %}
+            {% set low_count = competitor_data|selectattr("urgency","equalto","LOW")|list|length %}
+            {% set med_count = competitor_data|selectattr("urgency","equalto","MEDIUM")|list|length %}
+            {% set high_count = competitor_data|selectattr("urgency","equalto","HIGH")|list|length %}
+            <div class="summary">
+                <span class="badge badge-green">LOW: {{ low_count }}</span>
+                <span class="badge badge-warm">MEDIUM: {{ med_count }}</span>
+                <span class="badge badge-hot">HIGH: {{ high_count }}</span>
+                <span class="badge badge-total">Total: {{ competitor_data|length }}</span>
+            </div>
+            <div class="filter-tabs" id="competitor-filter-tabs">
+                <button class="filter-tab active" onclick="filterCompetitorTable('all', this)">All</button>
+                <button class="filter-tab" onclick="filterCompetitorTable('LOW', this)">LOW</button>
+                <button class="filter-tab" onclick="filterCompetitorTable('MEDIUM', this)">MEDIUM</button>
+                <button class="filter-tab" onclick="filterCompetitorTable('HIGH', this)">HIGH</button>
+            </div>
+            <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'competitor-table')"></div>
+            <div class="table-wrap">
+                <table id="competitor-table">
+                    <thead><tr><th>#</th><th>Business</th><th>City</th><th>Reviews</th><th>Gap</th><th>Urgency</th><th>#1 Comp</th><th>#1 Rev</th><th>#2 Comp</th><th>#2 Rev</th><th>#3 Comp</th><th>#3 Rev</th><th>Email</th><th>Phone</th></tr></thead>
+                    <tbody>{% for row in competitor_data %}<tr data-urgency="{{ row.urgency }}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ row.business_name or '---' }}</td>
+                        <td>{{ row.city or '---' }}</td>
+                        <td>{{ row.review_count if row.review_count == row.review_count else '---' }}</td>
+                        <td>
+                            <span style="font-weight:600;">{{ row.competitive_gap_score }}/10</span>
+                            <span class="score-bar"><span class="score-fill" data-w="{{ row.competitive_gap_score * 10 }}" data-c="{% if row.competitive_gap_score <= 3 %}var(--accent-green){% elif row.competitive_gap_score <= 6 %}var(--accent-yellow){% else %}var(--accent-red){% endif %}"></span></span>
+                        </td>
+                        <td><span class="label urgency-{{ row.urgency }}">{{ row.urgency }}</span></td>
+                        <td>{{ row.top1_name or '---' }}</td>
+                        <td>{{ row.top1_reviews }}</td>
+                        <td>{{ row.top2_name or '---' }}</td>
+                        <td>{{ row.top2_reviews }}</td>
+                        <td>{{ row.top3_name or '---' }}</td>
+                        <td>{{ row.top3_reviews }}</td>
+                        <td>{{ row.personal_email or '---' }}</td>
+                        <td>{{ row.phone or '---' }}</td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No competitor data yet. Run Tool 6 first, then click "Run Competitor Intel".</div>
+            {% endif %}
+        </div>
+
+        <!-- TOOL 8: Value Calculator -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h2><span class="tool-num">8</span> Value Calculator</h2>
+                <div class="btn-group">
+                    <button class="btn btn-green" id="btn-run-t8" onclick="runTool('tool8')">Run Value Calculator</button>
+                    {% if calculated_data %}
+                    <a class="btn btn-csv" href="/download/tool8/csv">CSV</a>
+                    <a class="btn btn-excel" href="/download/tool8/excel">Excel</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% if calculated_data %}
+            <div class="dl-filters">
+                <span class="dl-filters-label">Download by ROI Score</span>
+                <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool8&filter=high_roi" title="Download HIGH ROI prospects (score >= 30)">HIGH ROI (30+)</a>
+                <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool8&filter=medium_roi" title="Download MEDIUM ROI prospects (15-29)">MEDIUM ROI (15-29)</a>
+                <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool8&filter=low_roi" title="Download LOW ROI prospects (score < 15)">LOW ROI (&lt;15)</a>
+            </div>
+            {% endif %}
+            <div class="status-bar" id="status-tool8"></div>
+            {% if calculated_data %}
+            {% set high_roi = calculated_data|selectattr("roi_multiple","ge",30)|list|length %}
+            {% set total_val = calculated_data|length %}
+            <div class="summary">
+                <span class="badge badge-hot">High ROI (30+): {{ high_roi }}</span>
+                <span class="badge badge-purple">Total: {{ total_val }}</span>
+            </div>
+            <div class="filter-tabs" id="value-filter-tabs">
+                <button class="filter-tab active" onclick="filterValueTable('all', this)">All</button>
+                <button class="filter-tab" onclick="filterValueTable('HIGH', this)">HIGH (30+)</button>
+                <button class="filter-tab" onclick="filterValueTable('MEDIUM', this)">MEDIUM (15-29)</button>
+                <button class="filter-tab" onclick="filterValueTable('LOW', this)">LOW (&lt;15)</button>
+            </div>
+            <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'value-table')"></div>
+            <div class="table-wrap">
+                <table id="value-table">
+                    <thead><tr><th>#</th><th>Business</th><th>City</th><th>ROI Score</th><th>Monthly Value</th><th>Gap</th><th>GBP</th><th>Website</th><th>Value Summary</th><th>Email</th><th>Phone</th></tr></thead>
+                    <tbody>{% for row in calculated_data %}<tr data-roi="{% if row.roi_multiple >= 30 %}HIGH{% elif row.roi_multiple >= 15 %}MEDIUM{% else %}LOW{% endif %}">
+                        <td>{{ loop.index }}</td>
+                        <td>{{ row.business_name or '---' }}</td>
+                        <td>{{ row.city or '---' }}</td>
+                        <td>
+                            <span data-roi-color="{% if row.roi_multiple >= 30 %}#fca5a5{% elif row.roi_multiple >= 15 %}#fcd34d{% else %}#86efac{% endif %}" style="font-weight:600;">{{ row.roi_multiple }}/50</span>
+                            <span class="score-bar"><span class="score-fill" data-w="{{ (row.roi_multiple / 50 * 100)|round }}" data-c="{% if row.roi_multiple >= 30 %}var(--accent-red){% elif row.roi_multiple >= 15 %}var(--accent-yellow){% else %}var(--accent-green){% endif %}"></span></span>
+                        </td>
+                        <td style="color:#86efac;font-weight:600;">${{ row.monthly_value }}/mo</td>
+                        <td>{{ row.competitive_gap_score if row.competitive_gap_score == row.competitive_gap_score else '---' }}/10</td>
+                        <td>{{ row.gbp_score if row.gbp_score == row.gbp_score else '---' }}/100</td>
+                        <td>{% if row.website_quality %}<span class="label quality-{{ row.website_quality }}">{{ row.website_quality }}</span>{% else %}---{% endif %}</td>
+                        <td style="max-width:300px;white-space:normal;font-size:11px;color:var(--text-muted);">{{ row.value_summary_sentence or '---' }}</td>
+                        <td>{{ row.personal_email or '---' }}</td>
+                        <td>{{ row.phone or '---' }}</td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No value data yet. Run Tool 7 first, then click "Run Value Calculator".</div>
+            {% endif %}
+        </div>
+
+        <!-- TOOL 9: Email Personaliser -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h2><span class="tool-num">9</span> Email Personaliser</h2>
+                <div class="btn-group">
+                    <button class="btn btn-green" id="btn-run-t9" onclick="runTool('tool9')">Run Email Personaliser</button>
+                    {% if emails_data %}
+                    <a class="btn btn-csv" href="/download/tool9/csv">CSV</a>
+                    <a class="btn btn-excel" href="/download/tool9/excel">Excel</a>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="status-bar" id="status-tool9"></div>
+            {% if emails_data %}
+            <div class="summary">
+                <span class="badge badge-purple">{{ emails_data|length }} emails generated</span>
+            </div>
+            <div class="search-box"><input type="text" placeholder="Search emails..." onkeyup="searchTable(this, 'emails-table')"></div>
+            <div class="table-wrap">
+                <table id="emails-table">
+                    <thead><tr><th>#</th><th>Business Name</th><th>Owner</th><th>Subject</th><th>Custom Opener</th><th>Full Email</th></tr></thead>
+                    <tbody>{% for row in emails_data %}<tr>
+                        <td>{{ loop.index }}</td>
+                        <td>{{ row.business_name or '---' }}</td>
+                        <td>{{ row.owner_name or '---' }}</td>
+                        <td>{{ row.email_subject or '---' }}</td>
+                        <td style="max-width:350px;white-space:normal;color:#86efac;">{{ row.custom_opener or '---' }}</td>
+                        <td><button class="btn btn-ghost" style="font-size:11px;" onclick="showEmail(this.getAttribute('data-email'))" data-email="{{ row.full_email|e }}">View</button></td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No email data yet. Run Tool 8 first, then click "Run Email Personaliser".</div>
+            {% endif %}
+        </div>
+
+        <!-- TOOL 10: PDF Generator -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h2><span class="tool-num">10</span> PDF Audit Generator</h2>
+                <div class="btn-group">
+                    <button class="btn btn-green" id="btn-run-t10" onclick="runTool('tool10')">Generate PDFs</button>
+                </div>
+            </div>
+            <div class="status-bar" id="status-tool10"></div>
+            {% if audit_files %}
+            <div class="summary">
+                <span class="badge badge-purple">{{ audit_files|length }} PDFs ready</span>
+            </div>
+            <div class="table-wrap">
+                <table id="audit-table">
+                    <thead><tr><th>#</th><th>Audit File</th><th>Download</th></tr></thead>
+                    <tbody>{% for file in audit_files %}<tr>
+                        <td>{{ loop.index }}</td>
+                        <td style="color:#86efac;">{{ file }}</td>
+                        <td><a class="btn btn-csv" href="/download/audit/{{ file }}" style="font-size:11px;">Download PDF</a></td>
+                    </tr>{% endfor %}</tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="empty-state">No PDF audits yet. Run Tool 9 first, then click "Generate PDFs".</div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- Email Modal -->
+    <div class="modal-overlay" id="email-modal">
+        <div class="modal-box">
+            <h3>Email Preview</h3>
+            <pre id="email-content"></pre>
+            <button class="modal-close" onclick="closeEmail()">Close</button>
+        </div>
+    </div>
+
+    <script type="application/json" id="idx-chart-data">
+    {
+        "prospect_hot": {{ scored_data|selectattr("prospect_label","equalto","HOT")|list|length if scored_data else 0 }},
+        "prospect_warm": {{ scored_data|selectattr("prospect_label","equalto","WARM")|list|length if scored_data else 0 }},
+        "prospect_cold": {{ scored_data|selectattr("prospect_label","equalto","COLD")|list|length if scored_data else 0 }},
+        "website_bad": {{ website_data|selectattr("website_quality","equalto","BAD")|list|length if website_data else 0 }},
+        "website_basic": {{ website_data|selectattr("website_quality","equalto","BASIC")|list|length if website_data else 0 }},
+        "website_good": {{ website_data|selectattr("website_quality","equalto","GOOD")|list|length if website_data else 0 }},
+        "urgency_low": {{ competitor_data|selectattr("urgency","equalto","LOW")|list|length if competitor_data else 0 }},
+        "urgency_medium": {{ competitor_data|selectattr("urgency","equalto","MEDIUM")|list|length if competitor_data else 0 }},
+        "urgency_high": {{ competitor_data|selectattr("urgency","equalto","HIGH")|list|length if competitor_data else 0 }},
+        "cities": { {% if raw_data %}{% for row in raw_data %}"{{ row.city }}": {{ 1 }}{% if not loop.last %},{% endif %}{% endfor %}{% endif %} }
+    }
+    </script>
+    <script>
+        /* ===== TOOL BUTTONS ===== */
+        var btnIdMap = { tool1:'btn-run-t1', tool2:'btn-run-t2', tool3:'btn-run-t3', tool4:'btn-run-t4', tool5:'btn-run-t5', tool6:'btn-run-t6', tool7:'btn-run-t7', tool8:'btn-run-t8', tool9:'btn-run-t9', tool10:'btn-run-t10' };
+        var btnLabelMap = { tool1:'Run Scraper', tool2:'Run Scorer', tool3:'Run Ads Checker', tool4:'Run Website Checker', tool5:'Run Contact Finder', tool6:'Run GBP Analyser', tool7:'Run Competitor Intel', tool8:'Run Value Calculator', tool9:'Run Email Personaliser', tool10:'Generate PDFs' };
+        var pipelineTools = ['tool1','tool2','tool3','tool4','tool5','tool6','tool7','tool8','tool9','tool10'];
+
+        /* ===== CONTROL MESSAGES ===== */
+        function showControlMsg(msg, isError) {
+            var el = document.getElementById('control-msg');
+            el.textContent = msg;
+            el.style.display = 'block';
+            el.style.background = isError ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)';
+            el.style.color = isError ? '#fca5a5' : '#86efac';
+            el.style.border = isError ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(34,197,94,0.3)';
+            el.style.borderRadius = '8px';
+            el.style.padding = '8px 14px';
+            setTimeout(function() { el.style.display = 'none'; }, 4000);
+        }
+
+        /* ===== SAVE / SET ===== */
+        function saveCities() {
+            var val = document.getElementById('cities-input').value;
+            fetch('/save_cities', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cities:val}) })
+            .then(function(r){return r.json();}).then(function(d){ showControlMsg(d.msg, false); });
+        }
+        function saveService() {
+            var val = document.getElementById('service-select').value;
+            fetch('/save_service', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({service:val}) })
+            .then(function(r){return r.json();}).then(function(d){ showControlMsg(d.msg, false); });
+        }
+        function runSelectedTool() { runTool(document.getElementById('single-tool-select').value); }
+
+        /* ===== PIPELINE ===== */
+        function runPipeline() {
+            var btn = document.getElementById('btn-pipeline');
+            btn.disabled = true; btn.innerHTML = '&#x23F3; Running...';
+            var statusEl = document.getElementById('status-pipeline');
+            statusEl.className = 'pipeline-status-bar show pipeline-status-running';
+            statusEl.textContent = 'Starting full pipeline...';
+            // Reset steps
+            pipelineTools.forEach(function(t){ var el = document.getElementById('ps-'+t); el.className = 'pipeline-step'; });
+
+            fetch('/run/pipeline', { method:'POST' })
+            .then(function(r){return r.json();})
+            .then(function(d){
+                if (d.status === 'error' || d.status === 'running') {
+                    statusEl.className = 'pipeline-status-bar show pipeline-status-error';
+                    statusEl.textContent = d.msg;
+                    btn.disabled = false; btn.innerHTML = '&#x25B6; Run Full Pipeline';
+                    return;
+                }
+                pollPipeline();
+            });
+        }
+        function pollPipeline() {
+            var statusEl = document.getElementById('status-pipeline');
+            var btn = document.getElementById('btn-pipeline');
+            var interval = setInterval(function(){
+                fetch('/status').then(function(r){return r.json();}).then(function(data){
+                    statusEl.textContent = data.pipeline_msg;
+                    // Update pipeline step indicators
+                    pipelineTools.forEach(function(t){
+                        var stepEl = document.getElementById('ps-'+t);
+                        if (data[t] === 'done') stepEl.className = 'pipeline-step step-done';
+                        else if (data[t] === 'running') stepEl.className = 'pipeline-step step-running';
+                        else if (data[t] === 'error') stepEl.className = 'pipeline-step step-error';
+                    });
+                    if (data.pipeline === 'done') {
+                        clearInterval(interval);
+                        statusEl.className = 'pipeline-status-bar show pipeline-status-done';
+                        btn.disabled = false; btn.innerHTML = '&#x25B6; Run Full Pipeline';
+                        setTimeout(function(){ location.reload(); }, 1500);
+                    } else if (data.pipeline === 'error') {
+                        clearInterval(interval);
+                        statusEl.className = 'pipeline-status-bar show pipeline-status-error';
+                        btn.disabled = false; btn.innerHTML = '&#x25B6; Run Full Pipeline';
+                    }
+                });
+            }, 2000);
+        }
+
+        /* ===== AUTO-RESUME: re-attach pipeline polling if still running ===== */
+        (function resumePipeline() {
+            fetch('/status').then(function(r){return r.json();}).then(function(data){
+                if (data.pipeline === 'running') {
+                    var btn = document.getElementById('btn-pipeline');
+                    var statusEl = document.getElementById('status-pipeline');
+                    if (btn) { btn.disabled = true; btn.innerHTML = '&#x23F3; Running...'; }
+                    if (statusEl) { statusEl.className = 'pipeline-status-bar show pipeline-status-running'; statusEl.textContent = data.pipeline_msg || 'Running...'; }
+                    pipelineTools.forEach(function(t){
+                        var stepEl = document.getElementById('ps-'+t);
+                        if (stepEl) {
+                            if (data[t] === 'done') stepEl.className = 'pipeline-step step-done';
+                            else if (data[t] === 'running') stepEl.className = 'pipeline-step step-running';
+                            else if (data[t] === 'error') stepEl.className = 'pipeline-step step-error';
+                        }
+                    });
+                    pollPipeline();
+                }
+            }).catch(function(){});
+        })();
+
+        /* ===== CLEAR ===== */
+        function clearOutput() {
+            if (!confirm('Delete all CSV/Excel files and PDFs?')) return;
+            fetch('/clear_output', { method:'POST' })
+            .then(function(r){return r.json();})
+            .then(function(d){ showControlMsg(d.msg, false); setTimeout(function(){ location.reload(); }, 1000); });
+        }
+
+        /* ===== BEST LEADS ENGINE ===== */
+        function toggleBL(el) { el.classList.toggle('active'); }
+
+        function getBLParams() {
+            return 'hot=' + (document.getElementById('bl-hot').classList.contains('active') ? '1' : '0')
+                + '&no_ads=' + (document.getElementById('bl-no-ads').classList.contains('active') ? '1' : '0')
+                + '&bad_site=' + (document.getElementById('bl-bad-site').classList.contains('active') ? '1' : '0')
+                + '&high_roi=' + (document.getElementById('bl-high-roi').classList.contains('active') ? '1' : '0')
+                + '&high_gap=' + (document.getElementById('bl-high-gap').classList.contains('active') ? '1' : '0');
+        }
+
+        function generateBestLeads() {
+            var btn = document.getElementById('btn-best-leads');
+            var loading = document.getElementById('best-leads-loading');
+            var countEl = document.getElementById('best-leads-count');
+            var countNum = document.getElementById('bl-count-num');
+            var dlBtn = document.getElementById('btn-dl-best');
+            var msgEl = document.getElementById('best-leads-msg');
+            var tableWrap = document.getElementById('best-leads-table-wrap');
+            var tbody = document.getElementById('best-leads-tbody');
+            var empty = document.getElementById('best-leads-empty');
+
+            btn.disabled = true;
+            loading.classList.add('show');
+            countEl.classList.remove('show');
+            dlBtn.style.display = 'none';
+            msgEl.style.display = 'none';
+            tableWrap.style.display = 'none';
+            empty.style.display = 'none';
+
+            fetch('/best_leads?' + getBLParams())
+            .then(function(r){ return r.json(); })
+            .then(function(data) {
+                loading.classList.remove('show');
+                btn.disabled = false;
+
+                if (data.status === 'error') {
+                    msgEl.textContent = data.msg;
+                    msgEl.style.display = 'block';
+                    msgEl.style.background = 'rgba(239,68,68,0.1)';
+                    msgEl.style.color = '#fca5a5';
+                    msgEl.style.border = '1px solid rgba(239,68,68,0.3)';
+                    return;
+                }
+
+                countNum.textContent = data.count;
+                countEl.classList.add('show');
+
+                if (data.count === 0) {
+                    msgEl.textContent = 'No best leads found with current filters. Try disabling some toggles.';
+                    msgEl.style.display = 'block';
+                    msgEl.style.background = 'rgba(245,158,11,0.1)';
+                    msgEl.style.color = '#fcd34d';
+                    msgEl.style.border = '1px solid rgba(245,158,11,0.3)';
+                    empty.style.display = 'block';
+                    empty.textContent = 'No matching leads. Adjust your filters and try again.';
+                    return;
+                }
+
+                dlBtn.style.display = 'inline-flex';
+
+                // Build table
+                tbody.innerHTML = '';
+                data.preview.forEach(function(row, i) {
+                    var labelCls = 'label-' + (row.prospect_label || '');
+                    var qualCls = 'quality-' + (row.website_quality || '');
+                    var adsClass = (row.ads_running === 'NO') ? 'ads-no' : (row.ads_running === 'YES' ? 'ads-yes' : 'ads-unknown');
+                    var roiColor = (row.roi_multiple >= 30) ? '#fca5a5' : ((row.roi_multiple >= 15) ? '#fcd34d' : '#86efac');
+                    var gapColor = (row.competitive_gap_score >= 7) ? '#fca5a5' : ((row.competitive_gap_score >= 4) ? '#fcd34d' : '#86efac');
+
+                    var tr = '<tr>'
+                        + '<td>' + (i + 1) + '</td>'
+                        + '<td>' + (row.business_name || '---') + '</td>'
+                        + '<td>' + (row.city || '---') + '</td>'
+                        + '<td><span class="label ' + labelCls + '">' + (row.prospect_label || '---') + '</span></td>'
+                        + '<td><span class="' + adsClass + '">' + (row.ads_running || '---') + '</span></td>'
+                        + '<td><span class="label ' + qualCls + '">' + (row.website_quality || '---') + '</span></td>'
+                        + '<td style="font-weight:600;color:' + roiColor + '">' + (row.roi_multiple || '---') + '/50</td>'
+                        + '<td style="font-weight:600;color:' + gapColor + '">' + (row.competitive_gap_score || '---') + '/10</td>'
+                        + '<td style="color:#86efac;font-weight:600;">$' + (row.monthly_value || 0) + '/mo</td>'
+                        + '<td>' + (row.personal_email || '---') + '</td>'
+                        + '<td>' + (row.phone || '---') + '</td>'
+                        + '</tr>';
+                    tbody.innerHTML += tr;
+                });
+                tableWrap.style.display = 'block';
+
+                if (data.count > 20) {
+                    msgEl.textContent = 'Showing top 20 of ' + data.count + ' best leads. Download CSV for full list.';
+                    msgEl.style.display = 'block';
+                    msgEl.style.background = 'rgba(34,197,94,0.1)';
+                    msgEl.style.color = '#86efac';
+                    msgEl.style.border = '1px solid rgba(34,197,94,0.3)';
+                }
+            })
+            .catch(function() {
+                loading.classList.remove('show');
+                btn.disabled = false;
+                msgEl.textContent = 'Error generating best leads. Make sure pipeline has been run through Tool 8.';
+                msgEl.style.display = 'block';
+                msgEl.style.background = 'rgba(239,68,68,0.1)';
+                msgEl.style.color = '#fca5a5';
+                msgEl.style.border = '1px solid rgba(239,68,68,0.3)';
+            });
+        }
+
+        function downloadBestLeads() {
+            window.location.href = '/best_leads?' + getBLParams() + '&download=1';
+        }
+
+        /* ===== SMART EXPORT ===== */
+        function smartExport() {
+            var label = document.getElementById('se-label').value;
+            var ads = document.getElementById('se-ads').value;
+            var quality = document.getElementById('se-quality').value;
+            var gap = document.getElementById('se-gap').value;
+            var roi = document.getElementById('se-roi').value;
+            var msgEl = document.getElementById('smart-export-msg');
+
+            if (!label && !ads && !quality && !gap && !roi) {
+                msgEl.textContent = 'Select at least one filter.';
+                msgEl.style.display = 'block';
+                msgEl.style.background = 'rgba(239,68,68,0.1)';
+                msgEl.style.color = '#fca5a5';
+                msgEl.style.border = '1px solid rgba(239,68,68,0.3)';
+                setTimeout(function(){ msgEl.style.display = 'none'; }, 3000);
+                return;
+            }
+
+            var params = [];
+            if (label) params.push('label=' + label);
+            if (ads) params.push('ads=' + ads);
+            if (quality) params.push('quality=' + quality);
+            if (gap) params.push('gap_min=' + gap);
+            if (roi) params.push('roi_min=' + roi);
+
+            window.location.href = '/download_smart?' + params.join('&');
+        }
+
+        /* ===== RUN TOOL ===== */
+        function runTool(tool) {
+            var btn = document.getElementById(btnIdMap[tool]);
+            if (btn) { btn.disabled = true; btn.textContent = 'Running...'; }
+            var statusEl = document.getElementById('status-' + tool);
+            statusEl.className = 'status-bar show status-running'; statusEl.textContent = 'Starting...';
+
+            fetch('/run/' + tool, { method:'POST' })
+            .then(function(r){return r.json();})
+            .then(function(d){
+                if (d.status === 'error') {
+                    statusEl.className = 'status-bar show status-error'; statusEl.textContent = d.msg;
+                    if (btn) { btn.disabled = false; btn.textContent = btnLabelMap[tool]; }
+                    return;
+                }
+                pollStatus(tool);
+            });
+        }
+        function pollStatus(tool) {
+            var statusEl = document.getElementById('status-' + tool);
+            var btn = document.getElementById(btnIdMap[tool]);
+            var interval = setInterval(function(){
+                fetch('/status').then(function(r){return r.json();}).then(function(data){
+                    statusEl.textContent = data[tool + '_msg'];
+                    if (data[tool] === 'done') {
+                        clearInterval(interval);
+                        statusEl.className = 'status-bar show status-done';
+                        if (btn) { btn.disabled = false; btn.textContent = btnLabelMap[tool]; }
+                        setTimeout(function(){ location.reload(); }, 1000);
+                    } else if (data[tool] === 'error') {
+                        clearInterval(interval);
+                        statusEl.className = 'status-bar show status-error';
+                        if (btn) { btn.disabled = false; btn.textContent = btnLabelMap[tool]; }
+                    }
+                });
+            }, 2000);
+        }
+
+        /* ===== AUTO-RESUME: re-attach polling for any tool still running ===== */
+        (function resumeRunningTools() {
+            fetch('/status').then(function(r){return r.json();}).then(function(data){
+                pipelineTools.forEach(function(tool){
+                    if (data[tool] === 'running') {
+                        var btn = document.getElementById(btnIdMap[tool]);
+                        var statusEl = document.getElementById('status-' + tool);
+                        if (btn) { btn.disabled = true; btn.textContent = 'Running...'; }
+                        if (statusEl) { statusEl.className = 'status-bar show status-running'; statusEl.textContent = data[tool + '_msg'] || 'Running...'; }
+                        pollStatus(tool);
+                    }
+                });
+            }).catch(function(){});
+        })();
+
+        /* ===== SEARCH TABLE ===== */
+        function searchTable(input, tableId) {
+            var query = input.value.toLowerCase();
+            var rows = document.querySelectorAll('#' + tableId + ' tbody tr');
+            rows.forEach(function(row) {
+                var text = row.textContent.toLowerCase();
+                row.style.display = text.indexOf(query) !== -1 ? '' : 'none';
+            });
+        }
+
+        /* ===== FILTER FUNCTIONS ===== */
+        function filterTable(label, btn) {
+            btn.parentElement.querySelectorAll('.filter-tab').forEach(function(t){t.classList.remove('active');});
+            btn.classList.add('active');
+            document.querySelectorAll('#scored-table tbody tr').forEach(function(row){
+                row.style.display = (label === 'all' || row.getAttribute('data-label') === label) ? '' : 'none';
+            });
+        }
+        function filterAdsTable(filter, btn) {
+            document.querySelectorAll('#ads-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+            btn.classList.add('active');
+            document.querySelectorAll('#ads-table tbody tr').forEach(function(row){
+                var ads = row.getAttribute('data-ads'), label = row.getAttribute('data-label');
+                var show = filter === 'all' || (filter === 'NO' || filter === 'YES' ? ads === filter : label === 'HOT');
+                row.style.display = show ? '' : 'none';
+            });
+        }
+        function filterWebsiteTable(filter, btn) {
+            document.querySelectorAll('#website-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+            btn.classList.add('active');
+            document.querySelectorAll('#website-table tbody tr').forEach(function(row){
+                var quality = row.getAttribute('data-quality'), label = row.getAttribute('data-label');
+                var show = filter === 'all' || (['BAD','BASIC','GOOD'].indexOf(filter) >= 0 ? quality === filter : label === 'HOT');
+                row.style.display = show ? '' : 'none';
+            });
+        }
+        function filterEmailTable(filter, btn) {
+            document.querySelectorAll('#email-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+            btn.classList.add('active');
+            document.querySelectorAll('#email-table tbody tr').forEach(function(row){
+                var st = row.getAttribute('data-emailstatus');
+                var show = filter === 'all' || (filter === 'INVALID' ? (st === 'INVALID' || st === 'NO_MX') : st === filter);
+                row.style.display = show ? '' : 'none';
+            });
+        }
+        function filterGbpTable(filter, btn) {
+            document.querySelectorAll('#gbp-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+            btn.classList.add('active');
+            document.querySelectorAll('#gbp-table tbody tr').forEach(function(row){
+                row.style.display = (filter === 'all' || row.getAttribute('data-gbp') === filter) ? '' : 'none';
+            });
+        }
+        function filterCompetitorTable(filter, btn) {
+            document.querySelectorAll('#competitor-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+            btn.classList.add('active');
+            document.querySelectorAll('#competitor-table tbody tr').forEach(function(row){
+                row.style.display = (filter === 'all' || row.getAttribute('data-urgency') === filter) ? '' : 'none';
+            });
+        }
+        function filterValueTable(filter, btn) {
+            document.querySelectorAll('#value-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+            btn.classList.add('active');
+            document.querySelectorAll('#value-table tbody tr').forEach(function(row){
+                row.style.display = (filter === 'all' || row.getAttribute('data-roi') === filter) ? '' : 'none';
+            });
+        }
+
+        /* ===== EMAIL MODAL ===== */
+        function showEmail(text) {
+            document.getElementById('email-content').textContent = text;
+            document.getElementById('email-modal').classList.add('show');
+        }
+        function closeEmail() { document.getElementById('email-modal').classList.remove('show'); }
+        document.getElementById('email-modal').addEventListener('click', function(e){ if (e.target === this) closeEmail(); });
+
+        /* ===== CHARTS ===== */
+        Chart.defaults.color = '#94a3b8';
+        Chart.defaults.borderColor = 'rgba(30,41,59,0.5)';
+
+        var CD = JSON.parse(document.getElementById('idx-chart-data').textContent);
+
+        // Prospect Breakdown (Doughnut)
+        new Chart(document.getElementById('chart-prospects'), {
+            type: 'doughnut',
+            data: {
+                labels: ['HOT','WARM','COLD'],
+                datasets: [{
+                    data: [CD.prospect_hot, CD.prospect_warm, CD.prospect_cold],
+                    backgroundColor: ['rgba(239,68,68,0.7)','rgba(245,158,11,0.7)','rgba(59,130,246,0.7)'],
+                    borderColor: ['#ef4444','#f59e0b','#3b82f6'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '65%',
+                plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } } }
+            }
+        });
+
+        // Website Quality (Bar)
+        new Chart(document.getElementById('chart-websites'), {
+            type: 'bar',
+            data: {
+                labels: ['BAD','BASIC','GOOD'],
+                datasets: [{
+                    label: 'Count',
+                    data: [CD.website_bad, CD.website_basic, CD.website_good],
+                    backgroundColor: ['rgba(239,68,68,0.5)','rgba(245,158,11,0.5)','rgba(34,197,94,0.5)'],
+                    borderColor: ['#ef4444','#f59e0b','#22c55e'],
+                    borderWidth: 1, borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
+            }
+        });
+
+        // Leads by City (Horizontal Bar)
+        (function(){
+            var rawCities = CD.cities;
+            var cities = {};
+            for (var c in rawCities) { cities[c] = (cities[c] || 0) + rawCities[c]; }
+            var labels = Object.keys(cities);
+            var values = Object.values(cities);
+            new Chart(document.getElementById('chart-cities'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Leads',
+                        data: values,
+                        backgroundColor: 'rgba(139,92,246,0.5)',
+                        borderColor: '#8b5cf6',
+                        borderWidth: 1, borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, indexAxis: 'y',
+                    plugins: { legend: { display: false } },
+                    scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } }
+                }
+            });
+        })();
+
+        // Competitive Urgency (Doughnut)
+        new Chart(document.getElementById('chart-urgency'), {
+            type: 'doughnut',
+            data: {
+                labels: ['LOW','MEDIUM','HIGH'],
+                datasets: [{
+                    data: [CD.urgency_low, CD.urgency_medium, CD.urgency_high],
+                    backgroundColor: ['rgba(34,197,94,0.7)','rgba(245,158,11,0.7)','rgba(239,68,68,0.7)'],
+                    borderColor: ['#22c55e','#f59e0b','#ef4444'],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, cutout: '65%',
+                plugins: { legend: { position: 'bottom', labels: { padding: 16, usePointStyle: true, pointStyle: 'circle' } } }
+            }
+        });
+
+        /* ===== ANIMATE ON SCROLL ===== */
+        var observer = new IntersectionObserver(function(entries){
+            entries.forEach(function(entry){
+                if (entry.isIntersecting) { entry.target.style.opacity = '1'; entry.target.style.transform = 'translateY(0)'; }
+            });
+        }, { threshold: 0.1 });
+        document.querySelectorAll('.animate-in').forEach(function(el){
+            el.style.opacity = '0'; el.style.transform = 'translateY(10px)'; el.style.transition = 'all 0.5s ease';
+            observer.observe(el);
+        });
+        document.querySelectorAll('.score-fill').forEach(function(el){
+            var w = el.getAttribute('data-w');
+            var c = el.getAttribute('data-c');
+            if (w) el.style.width = w + '%';
+            if (c) el.style.background = c;
+        });
+        document.querySelectorAll('[data-owner]').forEach(function(el){
+            if (el.getAttribute('data-owner') !== 'Team') {
+                el.style.color = 'var(--accent-green)';
+                el.style.fontWeight = '600';
+            }
+        });
+        document.querySelectorAll('[data-roi-color]').forEach(function(el){
+            el.style.color = el.getAttribute('data-roi-color');
+        });
+    </script>
+</body>
+</html>

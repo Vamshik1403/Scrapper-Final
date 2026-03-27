@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+{% block title %}Import Leads — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Import Leads{% endblock %}
+{% block topbar_badge %}CSV / Excel{% endblock %}
+
+{% block extra_css %}
+<style>
+    .import-hero { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; margin-bottom: 24px; position: relative; overflow: hidden; }
+    .import-hero::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, #f59e0b, #ef4444, #8b5cf6); }
+    .import-hero h2 { font-size: 18px; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 10px; }
+    .import-hero p { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; }
+
+    .drop-zone { border: 2px dashed var(--border); border-radius: var(--radius); padding: 40px; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--bg-input); margin-bottom: 16px; }
+    .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent-purple); background: rgba(139,92,246,0.05); }
+    .drop-zone-icon { font-size: 42px; margin-bottom: 8px; }
+    .drop-zone-text { font-size: 14px; font-weight: 600; color: var(--text-secondary); }
+    .drop-zone-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+    .drop-zone input { display: none; }
+
+    .file-info { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px; color: #86efac; }
+    .file-info .file-icon { font-size: 20px; }
+
+    .mapper-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; display: none; }
+    .mapper-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+    .mapper-card p { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+    .mapper-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .mapper-item { display: flex; flex-direction: column; gap: 4px; }
+    .mapper-item label { font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .mapper-item select { padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-input); color: var(--text-primary); font-size: 12px; font-family: inherit; }
+    .mapper-item select:focus { outline: none; border-color: var(--accent-purple); }
+    .mapper-item .auto-badge { font-size: 10px; color: var(--accent-green); font-weight: 600; }
+
+    .sample-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; display: none; }
+    .sample-card h3 { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: var(--text-secondary); }
+
+    .import-msg { font-size: 13px; padding: 10px 16px; border-radius: var(--radius-sm); display: none; margin-bottom: 16px; }
+
+    .results-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .stat-box { background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; text-align: center; }
+    .stat-num { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; }
+    .stat-hot .stat-num { color: #fca5a5; }
+    .stat-warm .stat-num { color: #fcd34d; }
+    .stat-cold .stat-num { color: #93c5fd; }
+    .stat-total .stat-num { color: var(--accent-purple); }
+
+    .processing-overlay { display: none; align-items: center; justify-content: center; gap: 12px; padding: 20px; background: rgba(139,92,246,0.08); border: 1px solid rgba(139,92,246,0.2); border-radius: var(--radius-sm); margin-bottom: 16px; font-size: 13px; color: #c4b5fd; }
+    .processing-overlay.show { display: flex; }
+    .processing-overlay .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent-purple); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .mode-toggle { display: flex; gap: 0; border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; height: 36px; margin-bottom: 16px; }
+    .mode-btn { padding: 0 18px; font-size: 12px; font-weight: 600; background: var(--bg-input); color: var(--text-muted); border: none; cursor: pointer; transition: all 0.15s; font-family: inherit; white-space: nowrap; display: flex; align-items: center; gap: 6px; }
+    .mode-btn.active { background: var(--accent-purple); color: #fff; }
+    .mode-btn:hover:not(.active) { background: rgba(139,92,246,0.1); color: var(--text-primary); }
+
+    .score-gauge { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 13px; }
+    .score-bar { width: 48px; height: 6px; border-radius: 3px; background: var(--border); position: relative; overflow: hidden; }
+    .score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+    .reason-cell { font-size: 11px; color: var(--text-muted); max-width: 220px; line-height: 1.3; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- UPLOAD HERO -->
+<div class="import-hero animate-in">
+    <h2>&#x1F4E5; Import Leads &amp; Auto-Classify</h2>
+    <p>Upload a CSV or Excel file with your leads. The system will auto-detect columns, score each lead, and classify them as HOT / WARM / COLD.</p>
+
+    <div class="drop-zone" id="drop-zone">
+        <div class="drop-zone-icon">&#x1F4C1;</div>
+        <div class="drop-zone-text">Drag &amp; drop your CSV/Excel file here</div>
+        <div class="drop-zone-sub">or click to browse &mdash; supports .csv, .xlsx, .xls</div>
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
+    </div>
+
+    <div class="file-info" id="file-info" style="display:none;">
+        <span class="file-icon">&#x1F4C4;</span>
+        <span id="file-name"></span>
+        <span id="file-rows" style="margin-left:auto;color:var(--text-muted);"></span>
+    </div>
+
+    <div class="import-msg" id="upload-msg"></div>
+
+    <div class="processing-overlay" id="processing">
+        <span class="spinner"></span>
+        <span>Uploading and analysing your file...</span>
+    </div>
+</div>
+
+<!-- COLUMN MAPPER -->
+<div class="mapper-card animate-in" id="mapper-card">
+    <h3>&#x1F9E9; Column Mapping</h3>
+    <p>We auto-detected your columns. Adjust mappings if needed, then click "Process &amp; Classify".</p>
+    <div class="mapper-grid" id="mapper-grid"></div>
+
+    <!-- SCORING MODE TOGGLE -->
+    <div style="margin-bottom:16px;">
+        <label style="font-size:11px;color:var(--text-secondary);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:6px;">Scoring Engine</label>
+        <div class="mode-toggle" id="mode-toggle">
+            <button class="mode-btn active" data-mode="rules" onclick="setMode('rules', this)">&#x26A1; Rule-Based (Fast)</button>
+            <button class="mode-btn" data-mode="ai" onclick="setMode('ai', this)">&#x1F9E0; AI Scoring (Smart)</button>
+        </div>
+        <div id="ai-note" style="display:none;font-size:11px;color:#fcd34d;margin-top:4px;">&#x26A0; AI mode uses OpenAI API. Requires valid API key in config.py. Slower but smarter.</div>
+    </div>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="btn-process" onclick="processLeads()" style="background:linear-gradient(135deg,#f59e0b,#ef4444);">
+            &#x1F525; Process &amp; Classify Leads
+        </button>
+        <button class="btn btn-ghost" onclick="resetImport()">Cancel</button>
+    </div>
+    <div class="processing-overlay" id="processing2" style="margin-top:16px;">
+        <span class="spinner"></span>
+        <span>Scoring and classifying leads...</span>
+    </div>
+    <div class="import-msg" id="process-msg" style="margin-top:12px;"></div>
+</div>
+
+<!-- SAMPLE PREVIEW -->
+<div class="sample-card animate-in" id="sample-card">
+    <h3>Preview (first 5 rows)</h3>
+    <div class="table-wrap">
+        <table id="sample-table"><thead></thead><tbody></tbody></table>
+    </div>
+</div>
+
+<!-- RESULTS -->
+{% if imported_data %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num" style="background:rgba(245,158,11,0.15);color:#fcd34d;">&#x1F4E5;</span> Imported Leads</h2>
+        <div class="btn-group">
+            <a class="btn btn-csv" href="/download/imported/csv">CSV</a>
+            <a class="btn btn-excel" href="/download/imported/excel">Excel</a>
+            <button class="btn btn-danger" onclick="clearImported()">Clear</button>
+        </div>
+    </div>
+    <div class="dl-filters">
+        <span class="dl-filters-label">Download Filtered</span>
+        <a class="btn-dl btn-dl-hot" href="/download/imported/filtered/hot">HOT CSV</a>
+        <a class="btn-dl btn-dl-warm" href="/download/imported/filtered/warm">WARM CSV</a>
+        <a class="btn-dl btn-dl-cold" href="/download/imported/filtered/cold">COLD CSV</a>
+    </div>
+    <div class="results-stats" id="results-stats">
+        {% set hot_count = imported_data|selectattr("prospect_label","equalto","HOT")|list|length %}
+        {% set warm_count = imported_data|selectattr("prospect_label","equalto","WARM")|list|length %}
+        {% set cold_count = imported_data|selectattr("prospect_label","equalto","COLD")|list|length %}
+        <div class="stat-box stat-total"><div class="stat-num">{{ imported_data|length }}</div><div class="stat-label">Total Leads</div></div>
+        <div class="stat-box stat-hot"><div class="stat-num">{{ hot_count }}</div><div class="stat-label">HOT</div></div>
+        <div class="stat-box stat-warm"><div class="stat-num">{{ warm_count }}</div><div class="stat-label">WARM</div></div>
+        <div class="stat-box stat-cold"><div class="stat-num">{{ cold_count }}</div><div class="stat-label">COLD</div></div>
+    </div>
+    <div class="filter-tabs" id="import-filter-tabs">
+        <button class="filter-tab active" onclick="filterImportTable('all', this)">All</button>
+        <button class="filter-tab" onclick="filterImportTable('HOT', this)">HOT</button>
+        <button class="filter-tab" onclick="filterImportTable('WARM', this)">WARM</button>
+        <button class="filter-tab" onclick="filterImportTable('COLD', this)">COLD</button>
+    </div>
+    <div class="search-box"><input type="text" placeholder="Search imported leads..." onkeyup="searchTable(this, 'import-table')"></div>
+    <div class="table-wrap">
+        <table id="import-table">
+            <thead>
+                <tr><th>#</th><th>Business Name</th><th>Phone</th><th>Website</th><th>Address</th><th>Rating</th><th>Reviews</th><th>City</th><th>Score</th><th>Label</th><th>Reason</th></tr>
+            </thead>
+            <tbody>
+                {% for row in imported_data %}
+                <tr data-label="{{ row.prospect_label }}">
+                    <td>{{ loop.index }}</td>
+                    <td>{{ row.business_name or '---' }}</td>
+                    <td>{{ row.phone or '---' }}</td>
+                    <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                    <td>{{ row.address or '---' }}</td>
+                    <td>{{ row.rating or '---' }}</td>
+                    <td>{{ row.review_count|int if row.review_count else '---' }}</td>
+                    <td>{{ row.city or '---' }}</td>
+                    <td>
+                        <div class="score-gauge">
+                            <span>{{ row.import_score }}</span>
+                            <div class="score-bar">
+                                <div class="score-bar-fill" data-w="{{ (row.import_score|float / 10 * 100)|int }}" data-c="{% if row.import_score|float >= 7 %}#f87171{% elif row.import_score|float >= 4 %}#fbbf24{% else %}#60a5fa{% endif %}"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td><span class="label label-{{ row.prospect_label }}">{{ row.prospect_label }}</span></td>
+                    <td><div class="reason-cell">{{ row.ai_reason or '---' }}</div></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    var stdCols = ["business_name","phone","website","address","rating","review_count","city"];
+    var stdLabels = {"business_name":"Business Name","phone":"Phone","website":"Website","address":"Address","rating":"Rating","review_count":"Review Count","city":"City"};
+    var uploadedCols = [];
+    var autoMap = {};
+    var scoringMode = 'rules';
+
+    /* ===== SCORING MODE ===== */
+    function setMode(mode, btn) {
+        scoringMode = mode;
+        document.querySelectorAll('#mode-toggle .mode-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        document.getElementById('ai-note').style.display = mode === 'ai' ? 'block' : 'none';
+    }
+
+    /* ===== DRAG & DROP ===== */
+    var dropZone = document.getElementById('drop-zone');
+    var fileInput = document.getElementById('file-input');
+
+    dropZone.addEventListener('click', function() { fileInput.click(); });
+    dropZone.addEventListener('dragover', function(e) { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', function() { dropZone.classList.remove('dragover'); });
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault(); dropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length) { fileInput.files = e.dataTransfer.files; uploadFile(e.dataTransfer.files[0]); }
+    });
+    fileInput.addEventListener('change', function() { if (fileInput.files.length) uploadFile(fileInput.files[0]); });
+
+    function uploadFile(file) {
+        var ext = file.name.split('.').pop().toLowerCase();
+        if (['csv','xlsx','xls'].indexOf(ext) === -1) {
+            showMsg('upload-msg', 'Only CSV and Excel files are supported.', 'error'); return;
+        }
+        document.getElementById('processing').classList.add('show');
+        hideMsg('upload-msg');
+        document.getElementById('mapper-card').style.display = 'none';
+        document.getElementById('sample-card').style.display = 'none';
+
+        var fd = new FormData();
+        fd.append('file', file);
+
+        fetch('/import-leads/preview', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            document.getElementById('processing').classList.remove('show');
+            if (data.status === 'error') { showMsg('upload-msg', data.msg, 'error'); return; }
+
+            // Show file info
+            document.getElementById('file-info').style.display = 'flex';
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-rows').textContent = data.row_count + ' rows detected';
+
+            uploadedCols = data.columns;
+            autoMap = data.auto_map;
+
+            buildMapper(data.columns, data.auto_map);
+            buildSampleTable(data.columns, data.sample);
+
+            document.getElementById('mapper-card').style.display = 'block';
+            document.getElementById('sample-card').style.display = 'block';
+        })
+        .catch(function() {
+            document.getElementById('processing').classList.remove('show');
+            showMsg('upload-msg', 'Upload failed. Please try again.', 'error');
+        });
+    }
+
+    function buildMapper(cols, auto) {
+        var grid = document.getElementById('mapper-grid');
+        grid.innerHTML = '';
+        stdCols.forEach(function(std) {
+            var div = document.createElement('div');
+            div.className = 'mapper-item';
+            var autoCol = '';
+            for (var k in auto) { if (auto[k] === std) { autoCol = k; break; } }
+            var lbl = '<label>' + stdLabels[std];
+            if (autoCol) lbl += ' <span class="auto-badge">AUTO</span>';
+            lbl += '</label>';
+            var sel = '<select data-std="' + std + '"><option value="">— skip —</option>';
+            cols.forEach(function(c) {
+                var selected = (c === autoCol) ? ' selected' : '';
+                sel += '<option value="' + c + '"' + selected + '>' + c + '</option>';
+            });
+            sel += '</select>';
+            div.innerHTML = lbl + sel;
+            grid.appendChild(div);
+        });
+    }
+
+    function buildSampleTable(cols, rows) {
+        var thead = document.querySelector('#sample-table thead');
+        var tbody = document.querySelector('#sample-table tbody');
+        thead.innerHTML = '<tr>' + cols.map(function(c) { return '<th>' + c + '</th>'; }).join('') + '</tr>';
+        tbody.innerHTML = '';
+        rows.forEach(function(row) {
+            var tr = '<tr>' + cols.map(function(c) { return '<td>' + (row[c] !== null && row[c] !== undefined ? row[c] : '') + '</td>'; }).join('') + '</tr>';
+            tbody.innerHTML += tr;
+        });
+    }
+
+    /* ===== PROCESS ===== */
+    function processLeads() {
+        var mapping = {};
+        document.querySelectorAll('#mapper-grid select').forEach(function(sel) {
+            var std = sel.getAttribute('data-std');
+            var val = sel.value;
+            if (val) mapping[val] = std;
+        });
+
+        document.getElementById('processing2').classList.add('show');
+        document.getElementById('btn-process').disabled = true;
+        hideMsg('process-msg');
+
+        fetch('/import-leads/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mapping: mapping, use_ai: scoringMode === 'ai' })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            document.getElementById('processing2').classList.remove('show');
+            document.getElementById('btn-process').disabled = false;
+            if (data.status === 'error') { showMsg('process-msg', data.msg, 'error'); return; }
+            showMsg('process-msg', data.msg, 'success');
+            setTimeout(function() { location.reload(); }, 1200);
+        })
+        .catch(function() {
+            document.getElementById('processing2').classList.remove('show');
+            document.getElementById('btn-process').disabled = false;
+            showMsg('process-msg', 'Processing failed.', 'error');
+        });
+    }
+
+    /* ===== FILTER ===== */
+    function filterImportTable(label, btn) {
+        document.querySelectorAll('#import-filter-tabs .filter-tab').forEach(function(t) { t.classList.remove('active'); });
+        btn.classList.add('active');
+        document.querySelectorAll('#import-table tbody tr').forEach(function(row) {
+            row.style.display = (label === 'all' || row.getAttribute('data-label') === label) ? '' : 'none';
+        });
+    }
+
+    /* ===== CLEAR ===== */
+    function clearImported() {
+        if (!confirm('Delete all imported lead data?')) return;
+        fetch('/import-leads/clear', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function() { location.reload(); });
+    }
+
+    function resetImport() {
+        document.getElementById('mapper-card').style.display = 'none';
+        document.getElementById('sample-card').style.display = 'none';
+        document.getElementById('file-info').style.display = 'none';
+        document.getElementById('file-input').value = '';
+    }
+
+    /* ===== HELPERS ===== */
+    function showMsg(id, text, type) {
+        var el = document.getElementById(id);
+        el.textContent = text;
+        el.style.display = 'block';
+        if (type === 'error') { el.style.background = 'rgba(239,68,68,0.1)'; el.style.color = '#fca5a5'; el.style.border = '1px solid rgba(239,68,68,0.3)'; }
+        else { el.style.background = 'rgba(34,197,94,0.1)'; el.style.color = '#86efac'; el.style.border = '1px solid rgba(34,197,94,0.3)'; }
+    }
+    function hideMsg(id) { document.getElementById(id).style.display = 'none'; }
+
+    /* ===== SCORE BAR FILL (data-attribute pattern) ===== */
+    document.querySelectorAll('.score-bar-fill').forEach(function(el) {
+        el.style.width = el.getAttribute('data-w') + '%';
+        el.style.background = el.getAttribute('data-c');
+    });
+</script>
+{% endblock %}

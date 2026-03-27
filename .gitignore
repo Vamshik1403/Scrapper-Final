@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment & Secrets
+.env
+instance/
+*.db
+
+# Output data (regenerable)
+output/
+audits/
+backups/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Temp files
+tmpclaude-*

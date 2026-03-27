@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Value Calculator — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Tool 8 — Value Calculator{% endblock %}
+{% block topbar_badge %}ROI{% endblock %}
+
+{% block content %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num">8</span> Value Calculator</h2>
+        <div class="btn-group">
+            <button class="btn btn-green" id="btn-run-t8" onclick="runTool('tool8')">Run Value Calculator</button>
+            {% if calculated_data %}
+            <a class="btn btn-csv" href="/download/tool8/csv">CSV</a>
+            <a class="btn btn-excel" href="/download/tool8/excel">Excel</a>
+            {% endif %}
+        </div>
+    </div>
+    {% if calculated_data %}
+    <div class="dl-filters">
+        <span class="dl-filters-label">Download by ROI Score</span>
+        <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool8&filter=high_roi">HIGH ROI (30+)</a>
+        <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool8&filter=medium_roi">MEDIUM ROI (15-29)</a>
+        <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool8&filter=low_roi">LOW ROI (&lt;15)</a>
+    </div>
+    {% endif %}
+    <div class="status-bar" id="status-tool8"></div>
+    {% if calculated_data %}
+    {% set high_roi = calculated_data|selectattr("roi_multiple","ge",30)|list|length %}
+    {% set total_val = calculated_data|length %}
+    <div class="summary">
+        <span class="badge badge-hot">High ROI (30+): {{ high_roi }}</span>
+        <span class="badge badge-purple">Total: {{ total_val }}</span>
+    </div>
+    <div class="filter-tabs" id="value-filter-tabs">
+        <button class="filter-tab active" onclick="filterValueTable('all', this)">All</button>
+        <button class="filter-tab" onclick="filterValueTable('HIGH', this)">HIGH (30+)</button>
+        <button class="filter-tab" onclick="filterValueTable('MEDIUM', this)">MEDIUM (15-29)</button>
+        <button class="filter-tab" onclick="filterValueTable('LOW', this)">LOW (&lt;15)</button>
+    </div>
+    <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'value-table')"></div>
+    <div class="table-wrap">
+        <table id="value-table">
+            <thead><tr><th>#</th><th>Business</th><th>City</th><th>ROI Score</th><th>Monthly Value</th><th>Gap</th><th>GBP</th><th>Website</th><th>Value Summary</th><th>Email</th><th>Phone</th></tr></thead>
+            <tbody>{% for row in calculated_data %}<tr data-roi="{% if row.roi_multiple >= 30 %}HIGH{% elif row.roi_multiple >= 15 %}MEDIUM{% else %}LOW{% endif %}">
+                <td>{{ loop.index }}</td>
+                <td>{{ row.business_name or '---' }}</td>
+                <td>{{ row.city or '---' }}</td>
+                <td>
+                    <span class="{% if row.roi_multiple >= 30 %}text-red{% elif row.roi_multiple >= 15 %}text-yellow{% else %}text-green{% endif %}" style="font-weight:600">{{ row.roi_multiple }}/50</span>
+                    <span class="score-bar"><span class="score-fill" data-w="{{ (row.roi_multiple / 50 * 100)|round }}" data-c="{% if row.roi_multiple >= 30 %}fill-red{% elif row.roi_multiple >= 15 %}fill-yellow{% else %}fill-green{% endif %}"></span></span>
+                </td>
+                <td style="color:#86efac;font-weight:600;">${{ row.monthly_value }}/mo</td>
+                <td>{{ row.competitive_gap_score|round(1) }}/10</td>
+                <td>{{ row.gbp_score|round|int }}/100</td>
+                <td>{% if row.website_quality %}<span class="label quality-{{ row.website_quality }}">{{ row.website_quality }}</span>{% else %}---{% endif %}</td>
+                <td style="max-width:300px;white-space:normal;font-size:11px;color:var(--text-muted);">{{ row.value_summary_sentence or '---' }}</td>
+                <td>{{ row.personal_email or '---' }}</td>
+                <td>{{ row.phone or '---' }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No value data yet. Run Tool 7 first, then click "Run Value Calculator".</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterValueTable(filter, btn) {
+    document.querySelectorAll('#value-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+    btn.classList.add('active');
+    document.querySelectorAll('#value-table tbody tr').forEach(function(row){
+        row.style.display = (filter === 'all' || row.getAttribute('data-roi') === filter) ? '' : 'none';
+    });
+}
+document.querySelectorAll('.score-fill[data-w]').forEach(function(el){ el.style.width = el.getAttribute('data-w') + '%'; el.classList.add(el.getAttribute('data-c')); });
+</script>
+{% endblock %}

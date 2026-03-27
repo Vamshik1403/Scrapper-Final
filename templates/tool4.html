@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Website Checker — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Tool 4 — Website Checker{% endblock %}
+{% block topbar_badge %}Site Audit{% endblock %}
+
+{% block content %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num">4</span> Website Checker</h2>
+        <div class="btn-group">
+            <button class="btn btn-green" id="btn-run-t4" onclick="runTool('tool4')">Run Website Checker</button>
+            {% if website_data %}
+            <a class="btn btn-csv" href="/download/tool4/csv">CSV</a>
+            <a class="btn btn-excel" href="/download/tool4/excel">Excel</a>
+            <a class="btn btn-csv" href="/download/hot/csv" style="background:#ef4444;">HOT CSV</a>
+            <a class="btn btn-csv" href="/download/warm/csv" style="background:#f59e0b;">WARM CSV</a>
+            {% endif %}
+        </div>
+    </div>
+    {% if website_data %}
+    <div class="dl-filters">
+        <span class="dl-filters-label">Download by Website Quality</span>
+        <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool4&filter=bad">BAD Sites</a>
+        <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool4&filter=basic">BASIC Sites</a>
+        <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool4&filter=good">GOOD Sites</a>
+    </div>
+    {% endif %}
+    <div class="status-bar" id="status-tool4"></div>
+    {% if website_data %}
+    {% set bad_count = website_data|selectattr("website_quality","equalto","BAD")|list|length %}
+    {% set basic_count = website_data|selectattr("website_quality","equalto","BASIC")|list|length %}
+    {% set good_count = website_data|selectattr("website_quality","equalto","GOOD")|list|length %}
+    <div class="summary">
+        <span class="badge badge-hot">BAD: {{ bad_count }}</span>
+        <span class="badge badge-warm">BASIC: {{ basic_count }}</span>
+        <span class="badge badge-green">GOOD: {{ good_count }}</span>
+        <span class="badge badge-total">Total: {{ website_data|length }}</span>
+    </div>
+    <div class="filter-tabs" id="website-filter-tabs">
+        <button class="filter-tab active" onclick="filterWebsiteTable('all', this)">All</button>
+        <button class="filter-tab" onclick="filterWebsiteTable('BAD', this)">BAD</button>
+        <button class="filter-tab" onclick="filterWebsiteTable('BASIC', this)">BASIC</button>
+        <button class="filter-tab" onclick="filterWebsiteTable('GOOD', this)">GOOD</button>
+        <button class="filter-tab" onclick="filterWebsiteTable('HOT', this)">HOT Only</button>
+    </div>
+    <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'website-table')"></div>
+    <div class="table-wrap">
+        <table id="website-table">
+            <thead><tr><th>#</th><th>Business</th><th>Phone</th><th>City</th><th>Label</th><th>Quality</th><th>Score</th><th>Speed</th><th>Mobile</th><th>Phone Link</th><th>Form</th><th>Booking</th><th>HTTPS</th><th>Platform</th></tr></thead>
+            <tbody>{% for row in website_data %}<tr data-quality="{{ row.website_quality }}" data-label="{{ row.prospect_label }}">
+                <td>{{ loop.index }}</td>
+                <td>{{ row.business_name or '---' }}</td>
+                <td>{{ row.phone or '---' }}</td>
+                <td>{{ row.city or '---' }}</td>
+                <td><span class="label label-{{ row.prospect_label }}">{{ row.prospect_label }}</span></td>
+                <td><span class="label quality-{{ row.website_quality }}">{{ row.website_quality }}</span></td>
+                <td>{{ row.website_score }}/10</td>
+                <td>{{ row.load_speed if row.load_speed == row.load_speed else '---' }}s</td>
+                <td class="check-{{ row.has_mobile|string|lower }}">{{ 'Yes' if row.has_mobile else 'No' }}</td>
+                <td class="check-{{ row.has_phone|string|lower }}">{{ 'Yes' if row.has_phone else 'No' }}</td>
+                <td class="check-{{ row.has_form|string|lower }}">{{ 'Yes' if row.has_form else 'No' }}</td>
+                <td class="check-{{ row.has_booking|string|lower }}">{{ 'Yes' if row.has_booking else 'No' }}</td>
+                <td class="check-{{ row.has_https|string|lower }}">{{ 'Yes' if row.has_https else 'No' }}</td>
+                <td>{{ row.platform }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No website data yet. Run Tool 3 first, then click "Run Website Checker".</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterWebsiteTable(filter, btn) {
+    document.querySelectorAll('#website-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+    btn.classList.add('active');
+    document.querySelectorAll('#website-table tbody tr').forEach(function(row){
+        var quality = row.getAttribute('data-quality'), label = row.getAttribute('data-label');
+        var show = filter === 'all' || (['BAD','BASIC','GOOD'].indexOf(filter) >= 0 ? quality === filter : label === 'HOT');
+        row.style.display = show ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

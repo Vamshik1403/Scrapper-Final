@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% block title %}Email Personaliser — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Tool 9 — Email Personaliser{% endblock %}
+{% block topbar_badge %}Outreach{% endblock %}
+
+{% block content %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num">9</span> Email Personaliser</h2>
+        <div class="btn-group">
+            <button class="btn btn-green" id="btn-run-t9" onclick="runTool('tool9')">Run Email Personaliser</button>
+            {% if emails_data %}
+            <a class="btn btn-csv" href="/download/tool9/csv">CSV</a>
+            <a class="btn btn-excel" href="/download/tool9/excel">Excel</a>
+            {% endif %}
+        </div>
+    </div>
+    <div class="status-bar" id="status-tool9"></div>
+    {% if emails_data %}
+    <div class="summary">
+        <span class="badge badge-purple">{{ emails_data|length }} emails generated</span>
+    </div>
+    <div class="search-box"><input type="text" placeholder="Search emails..." onkeyup="searchTable(this, 'emails-table')"></div>
+    <div class="table-wrap">
+        <table id="emails-table">
+            <thead><tr><th>#</th><th>Business Name</th><th>Owner</th><th>Subject</th><th>Custom Opener</th><th>Full Email</th></tr></thead>
+            <tbody>{% for row in emails_data %}<tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ row.business_name or '---' }}</td>
+                <td>{{ row.owner_name or '---' }}</td>
+                <td>{{ row.email_subject or '---' }}</td>
+                <td style="max-width:350px;white-space:normal;color:#86efac;">{{ row.custom_opener or '---' }}</td>
+                <td><button class="btn btn-ghost" style="font-size:11px;" onclick="showEmail(this.getAttribute('data-email'))" data-email="{{ row.full_email|e }}">View</button></td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No email data yet. Run Tool 8 first, then click "Run Email Personaliser".</div>
+    {% endif %}
+</div>
+
+<!-- EMAIL OUTREACH SECTION -->
+{% if emails_data %}
+<div class="card animate-in" style="margin-top:24px;">
+    <div class="card-header">
+        <h2><span class="tool-num" style="background:rgba(34,197,94,0.15);color:#86efac;">&#x2709;</span> Email Outreach — Send Emails</h2>
+    </div>
+
+    <!-- Bulk Send Controls -->
+    <div style="padding:16px 0; border-bottom:1px solid var(--border); margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:20px; flex-wrap:wrap; margin-bottom:14px;">
+            <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); cursor:pointer;">
+                <div class="toggle-switch active" id="outreach-hot" onclick="toggleOutreach(this)"></div>
+                <span style="color:#ef4444; font-weight:600;">HOT</span>
+            </label>
+            <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); cursor:pointer;">
+                <div class="toggle-switch active" id="outreach-warm" onclick="toggleOutreach(this)"></div>
+                <span style="color:#f97316; font-weight:600;">WARM</span>
+            </label>
+            <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary);">
+                <span>Max Emails:</span>
+                <select id="outreach-max" style="padding:4px 8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:12px;">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="30" selected>30</option>
+                    <option value="50">50</option>
+                </select>
+            </label>
+            <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary);">
+                <span>Batch Size:</span>
+                <select id="outreach-batch" style="padding:4px 8px; border-radius:6px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:12px;">
+                    <option value="5">5</option>
+                    <option value="10" selected>10</option>
+                    <option value="20">20</option>
+                </select>
+            </label>
+            <label style="display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--text-secondary); cursor:pointer;">
+                <div class="toggle-switch active" id="outreach-safe-mode" onclick="toggleOutreach(this)"></div>
+                <span style="font-weight:600;">&#x1F6E1; Safe Mode</span>
+                <span id="safe-mode-label" style="font-size:10px; padding:2px 8px; border-radius:10px; font-weight:700; background:rgba(34,197,94,0.15); color:#86efac;">ON</span>
+            </label>
+        </div>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px;">
+            <button class="btn btn-green" id="btn-outreach-preview" onclick="previewOutreach()" style="padding:6px 16px; font-size:12px;">Preview Recipients</button>
+            <button class="btn btn-primary" id="btn-outreach-send" onclick="sendBulkEmails()" style="background:linear-gradient(135deg,#22c55e,#16a34a); padding:8px 20px; font-size:13px;">
+                &#x2709; Send All Emails
+            </button>
+            <span class="best-leads-loading" id="outreach-loading" style="display:none;"><span class="spinner"></span> Sending...</span>
+        </div>
+        <div id="outreach-status" style="display:none; font-size:13px; padding:10px 14px; border-radius:8px; margin-bottom:10px;"></div>
+        <!-- PROGRESS BAR -->
+        <div id="outreach-progress-wrap" style="display:none; margin-bottom:12px;">
+            <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--text-secondary); margin-bottom:4px;">
+                <span id="outreach-progress-label">0 / 0 emails</span>
+                <span id="outreach-progress-pct">0%</span>
+            </div>
+            <div style="width:100%; height:8px; background:rgba(255,255,255,0.06); border-radius:4px; overflow:hidden;">
+                <div id="outreach-progress-bar" style="width:0%; height:100%; background:linear-gradient(90deg,#22c55e,#86efac); border-radius:4px; transition:width 0.5s ease;"></div>
+            </div>
+        </div>
+        <!-- DAILY STATS -->
+        <div id="outreach-daily-stats" style="display:flex; gap:16px; flex-wrap:wrap; font-size:11px; color:var(--text-muted); margin-bottom:10px;">
+            <span>Today: <strong id="daily-sent-count" style="color:#86efac;">--</strong> / <span id="daily-limit-count">80</span> emails</span>
+            <span>Warm-up limit: <strong id="warmup-limit-count" style="color:#fcd34d;">--</strong></span>
+            <span id="cooldown-display" style="display:none;">Cooldown: <strong id="cooldown-timer" style="color:#f97316;">--</strong></span>
+        </div>
+        <div style="font-size:11px; color:var(--text-muted); margin:0;">
+            <p style="margin:0 0 4px 0;">&#x1F6E1; <strong>Safe Mode (recommended):</strong> 5-12s random delay between emails + 60s pause between batches. Zoho/Gmail won't flag you.</p>
+            <p style="margin:0;">&#x26A1; <strong>Fast Mode:</strong> 2s delay, 5s batch pause. Higher risk of provider blocking. Use only for testing.</p>
+        </div>
+    </div>
+
+    <!-- Preview Table -->
+    <div id="outreach-preview-wrap" style="display:none;">
+        <div style="font-size:12px; color:var(--text-secondary); margin-bottom:8px; font-weight:600;">
+            Recipients: <span id="outreach-count" style="color:#86efac;">0</span> leads
+        </div>
+        <div class="table-wrap">
+            <table id="outreach-preview-table">
+                <thead><tr><th>#</th><th>Business</th><th>Owner</th><th>Email</th><th>Label</th><th>Subject</th><th>Actions</th></tr></thead>
+                <tbody id="outreach-preview-tbody"></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Email Send Modal -->
+<div class="modal-overlay" id="send-email-modal">
+    <div class="modal-box" style="max-width:600px;">
+        <h3>&#x2709; Send Email</h3>
+        <div style="margin:12px 0;">
+            <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">To:</label>
+            <input type="email" id="send-to" readonly style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; margin-bottom:10px;">
+            <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Subject:</label>
+            <input type="text" id="send-subject" style="width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; margin-bottom:10px;">
+            <label style="font-size:11px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Email Body:</label>
+            <textarea id="send-body" rows="12" style="width:100%; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-input); color:var(--text-primary); font-size:13px; font-family:inherit; resize:vertical; line-height:1.5;"></textarea>
+        </div>
+        <div id="send-single-status" style="display:none; font-size:12px; padding:8px 12px; border-radius:8px; margin-bottom:10px;"></div>
+        <div style="display:flex; gap:10px;">
+            <button class="btn btn-primary" id="btn-send-single" onclick="sendSingleEmail()" style="background:linear-gradient(135deg,#22c55e,#16a34a);">&#x2709; Send Email</button>
+            <button class="modal-close" onclick="closeSendModal()">Cancel</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleOutreach(el) {
+    el.classList.toggle('active');
+    // Update safe mode label
+    var safeModeEl = document.getElementById('outreach-safe-mode');
+    var safeLabelEl = document.getElementById('safe-mode-label');
+    if (safeModeEl && safeLabelEl) {
+        if (safeModeEl.classList.contains('active')) {
+            safeLabelEl.textContent = 'ON';
+            safeLabelEl.style.background = 'rgba(34,197,94,0.15)';
+            safeLabelEl.style.color = '#86efac';
+        } else {
+            safeLabelEl.textContent = 'OFF';
+            safeLabelEl.style.background = 'rgba(239,68,68,0.15)';
+            safeLabelEl.style.color = '#fca5a5';
+        }
+    }
+}
+
+function previewOutreach() {
+    var btn = document.getElementById('btn-outreach-preview');
+    var wrap = document.getElementById('outreach-preview-wrap');
+    var tbody = document.getElementById('outreach-preview-tbody');
+    var countEl = document.getElementById('outreach-count');
+    var statusEl = document.getElementById('outreach-status');
+    btn.disabled = true; btn.textContent = 'Loading...';
+    var hot = document.getElementById('outreach-hot').classList.contains('active');
+    var warm = document.getElementById('outreach-warm').classList.contains('active');
+    fetch('/outreach/preview', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({include_hot: hot, include_warm: warm})
+    }).then(function(r){return r.json();}).then(function(data) {
+        btn.disabled = false; btn.textContent = 'Preview Recipients';
+        if (data.count === 0) {
+            statusEl.textContent = 'No leads found with email addresses for the selected filters. Make sure Tool 5 (Contact Finder) has been run.';
+            statusEl.style.display = 'block'; statusEl.style.background = 'rgba(245,158,11,0.1)';
+            statusEl.style.color = '#fcd34d'; statusEl.style.border = '1px solid rgba(245,158,11,0.3)';
+            wrap.style.display = 'none'; return;
+        }
+        statusEl.style.display = 'none';
+        countEl.textContent = data.count;
+        tbody.innerHTML = '';
+        data.leads.forEach(function(lead, i) {
+            var labelCls = lead.prospect_label === 'HOT' ? 'label-HOT' : 'label-WARM';
+            tbody.innerHTML += '<tr>'
+                + '<td>' + (i+1) + '</td>'
+                + '<td>' + (lead.business_name || '---') + '</td>'
+                + '<td>' + (lead.owner_name || '---') + '</td>'
+                + '<td style="color:#67e8f9;">' + (lead.personal_email || '---') + '</td>'
+                + '<td><span class="label ' + labelCls + '">' + (lead.prospect_label || '---') + '</span></td>'
+                + '<td>' + (lead.email_subject || '---') + '</td>'
+                + '<td><button class="btn btn-ghost" style="font-size:11px;" onclick="openSendModal(\'' + encodeURIComponent(lead.personal_email || '') + '\',\'' + encodeURIComponent(lead.email_subject || '') + '\',\'' + encodeURIComponent(lead.full_email || '') + '\')">Edit &amp; Send</button></td>'
+                + '</tr>';
+        });
+        wrap.style.display = 'block';
+    }).catch(function(){
+        btn.disabled = false; btn.textContent = 'Preview Recipients';
+        statusEl.textContent = 'Error loading preview.'; statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = '#fca5a5';
+        statusEl.style.border = '1px solid rgba(239,68,68,0.3)';
+    });
+}
+
+function sendBulkEmails() {
+    var hot = document.getElementById('outreach-hot').classList.contains('active');
+    var warm = document.getElementById('outreach-warm').classList.contains('active');
+    var batchSize = parseInt(document.getElementById('outreach-batch').value) || 10;
+    var maxEmails = parseInt(document.getElementById('outreach-max').value) || 30;
+    var safeMode = document.getElementById('outreach-safe-mode').classList.contains('active');
+    var sendMode = safeMode ? 'safe' : 'fast';
+    if (!hot && !warm) {
+        var s = document.getElementById('outreach-status');
+        s.textContent = 'Select at least HOT or WARM.'; s.style.display = 'block';
+        s.style.background = 'rgba(239,68,68,0.1)'; s.style.color = '#fca5a5';
+        s.style.border = '1px solid rgba(239,68,68,0.3)'; return;
+    }
+    var modeLabel = safeMode ? 'Safe' : 'Fast';
+    var confirmMsg = 'Send up to ' + maxEmails + ' emails (' + modeLabel + ' mode, batches of ' + batchSize + ') to '
+        + (hot && warm ? 'HOT & WARM' : hot ? 'HOT' : 'WARM') + ' leads. Continue?';
+    if (!confirm(confirmMsg)) return;
+    var btn = document.getElementById('btn-outreach-send');
+    var loading = document.getElementById('outreach-loading');
+    var statusEl = document.getElementById('outreach-status');
+    btn.disabled = true; loading.style.display = 'inline-flex';
+    fetch('/outreach/send_bulk', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({include_hot: hot, include_warm: warm, batch_size: batchSize, max_emails: maxEmails, send_mode: sendMode})
+    }).then(function(r){return r.json();}).then(function(data) {
+        if (data.status === 'error') {
+            loading.style.display = 'none'; btn.disabled = false;
+            statusEl.textContent = data.msg; statusEl.style.display = 'block';
+            statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = '#fca5a5';
+            statusEl.style.border = '1px solid rgba(239,68,68,0.3)'; return;
+        }
+        statusEl.textContent = data.msg; statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(34,197,94,0.1)'; statusEl.style.color = '#86efac';
+        statusEl.style.border = '1px solid rgba(34,197,94,0.3)';
+        pollOutreach();
+    }).catch(function(){
+        loading.style.display = 'none'; btn.disabled = false;
+        statusEl.textContent = 'Error starting email send.'; statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = '#fca5a5';
+        statusEl.style.border = '1px solid rgba(239,68,68,0.3)';
+    });
+}
+
+function pollOutreach() {
+    var statusEl = document.getElementById('outreach-status');
+    var btn = document.getElementById('btn-outreach-send');
+    var loading = document.getElementById('outreach-loading');
+    var progressWrap = document.getElementById('outreach-progress-wrap');
+    var progressBar = document.getElementById('outreach-progress-bar');
+    var progressLabel = document.getElementById('outreach-progress-label');
+    var progressPct = document.getElementById('outreach-progress-pct');
+    progressWrap.style.display = 'block';
+    var interval = setInterval(function(){
+        fetch('/outreach/status').then(function(r){return r.json();}).then(function(data){
+            statusEl.textContent = data.msg; statusEl.style.display = 'block';
+            // Update progress bar
+            var pct = data.progress || 0;
+            progressBar.style.width = pct + '%';
+            progressPct.textContent = pct + '%';
+            progressLabel.textContent = (data.sent + data.failed + data.skipped) + ' / ' + data.total + ' emails';
+            // Update daily stats
+            updateDailyStats(data);
+            if (data.status === 'done') {
+                clearInterval(interval);
+                loading.style.display = 'none'; btn.disabled = false;
+                progressBar.style.width = '100%'; progressPct.textContent = '100%';
+                statusEl.style.background = 'rgba(34,197,94,0.1)'; statusEl.style.color = '#86efac';
+                statusEl.style.border = '1px solid rgba(34,197,94,0.3)';
+            } else if (data.status === 'error') {
+                clearInterval(interval);
+                loading.style.display = 'none'; btn.disabled = false;
+                statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = '#fca5a5';
+                statusEl.style.border = '1px solid rgba(239,68,68,0.3)';
+            } else {
+                statusEl.style.background = 'rgba(59,130,246,0.1)'; statusEl.style.color = '#93c5fd';
+                statusEl.style.border = '1px solid rgba(59,130,246,0.3)';
+            }
+        });
+    }, 3000);
+}
+
+function updateDailyStats(data) {
+    var dailySent = document.getElementById('daily-sent-count');
+    var dailyLimit = document.getElementById('daily-limit-count');
+    var warmupLimit = document.getElementById('warmup-limit-count');
+    var cooldownDisplay = document.getElementById('cooldown-display');
+    var cooldownTimer = document.getElementById('cooldown-timer');
+    if (data.daily_count !== undefined) dailySent.textContent = data.daily_count;
+    if (data.daily_limit !== undefined) dailyLimit.textContent = data.daily_limit;
+    if (data.warmup_limit !== undefined) warmupLimit.textContent = data.warmup_limit;
+    if (data.cooldown_remaining > 0) {
+        cooldownDisplay.style.display = 'inline';
+        var m = Math.floor(data.cooldown_remaining / 60);
+        var s = data.cooldown_remaining % 60;
+        cooldownTimer.textContent = m + 'm ' + s + 's';
+    } else {
+        cooldownDisplay.style.display = 'none';
+    }
+}
+
+// Load daily stats on page load
+(function(){
+    fetch('/outreach/status').then(function(r){return r.json();}).then(function(data){
+        updateDailyStats(data);
+    }).catch(function(){});
+})();
+
+function openSendModal(email, subject, fullEmail) {
+    document.getElementById('send-to').value = decodeURIComponent(email);
+    document.getElementById('send-subject').value = decodeURIComponent(subject);
+    var body = decodeURIComponent(fullEmail);
+    var lines = body.split('\n');
+    var filtered = lines.filter(function(l){ return !l.startsWith('Subject:'); });
+    document.getElementById('send-body').value = filtered.join('\n').trim();
+    document.getElementById('send-single-status').style.display = 'none';
+    document.getElementById('send-email-modal').classList.add('show');
+}
+
+function closeSendModal() {
+    document.getElementById('send-email-modal').classList.remove('show');
+}
+document.getElementById('send-email-modal') && document.getElementById('send-email-modal').addEventListener('click', function(e){ if (e.target === this) closeSendModal(); });
+
+function sendSingleEmail() {
+    var recipient = document.getElementById('send-to').value;
+    var subject = document.getElementById('send-subject').value;
+    var body = document.getElementById('send-body').value;
+    var statusEl = document.getElementById('send-single-status');
+    var btn = document.getElementById('btn-send-single');
+    if (!recipient || !subject || !body) {
+        statusEl.textContent = 'All fields are required.'; statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = '#fca5a5';
+        statusEl.style.border = '1px solid rgba(239,68,68,0.3)'; return;
+    }
+    btn.disabled = true; btn.textContent = 'Sending...';
+    fetch('/outreach/send_single', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({recipient_email: recipient, subject: subject, body: body})
+    }).then(function(r){return r.json();}).then(function(data) {
+        btn.disabled = false; btn.textContent = '\u2709 Send Email';
+        statusEl.textContent = data.msg; statusEl.style.display = 'block';
+        if (data.status === 'ok') {
+            statusEl.style.background = 'rgba(34,197,94,0.1)'; statusEl.style.color = '#86efac';
+            statusEl.style.border = '1px solid rgba(34,197,94,0.3)';
+            setTimeout(function(){ closeSendModal(); }, 2000);
+        } else {
+            statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = '#fca5a5';
+            statusEl.style.border = '1px solid rgba(239,68,68,0.3)';
+        }
+    }).catch(function(){
+        btn.disabled = false; btn.textContent = '\u2709 Send Email';
+        statusEl.textContent = 'Network error.'; statusEl.style.display = 'block';
+        statusEl.style.background = 'rgba(239,68,68,0.1)'; statusEl.style.color = '#fca5a5';
+        statusEl.style.border = '1px solid rgba(239,68,68,0.3)';
+    });
+}
+</script>
+
+{% endblock %}

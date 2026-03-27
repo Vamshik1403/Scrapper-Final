@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Competitor Intel — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Tool 7 — Competitor Intelligence{% endblock %}
+{% block topbar_badge %}Competition{% endblock %}
+
+{% block content %}
+<div class="card animate-in">
+    <div class="card-header">
+        <h2><span class="tool-num">7</span> Competitor Intelligence</h2>
+        <div class="btn-group">
+            <button class="btn btn-green" id="btn-run-t7" onclick="runTool('tool7')">Run Competitor Intel</button>
+            {% if competitor_data %}
+            <a class="btn btn-csv" href="/download/tool7/csv">CSV</a>
+            <a class="btn btn-excel" href="/download/tool7/excel">Excel</a>
+            {% endif %}
+        </div>
+    </div>
+    {% if competitor_data %}
+    <div class="dl-filters">
+        <span class="dl-filters-label">Download by Gap Score</span>
+        <a class="btn-dl btn-dl-hot" href="/download_filtered?tool=tool7&filter=high_gap">HIGH Gap (7+)</a>
+        <a class="btn-dl btn-dl-warm" href="/download_filtered?tool=tool7&filter=medium_gap">MEDIUM Gap (4-6)</a>
+        <a class="btn-dl btn-dl-green" href="/download_filtered?tool=tool7&filter=low_gap">LOW Gap (1-3)</a>
+    </div>
+    {% endif %}
+    <div class="status-bar" id="status-tool7"></div>
+    {% if competitor_data %}
+    {% set low_count = competitor_data|selectattr("urgency","equalto","LOW")|list|length %}
+    {% set med_count = competitor_data|selectattr("urgency","equalto","MEDIUM")|list|length %}
+    {% set high_count = competitor_data|selectattr("urgency","equalto","HIGH")|list|length %}
+    <div class="summary">
+        <span class="badge badge-green">LOW: {{ low_count }}</span>
+        <span class="badge badge-warm">MEDIUM: {{ med_count }}</span>
+        <span class="badge badge-hot">HIGH: {{ high_count }}</span>
+        <span class="badge badge-total">Total: {{ competitor_data|length }}</span>
+    </div>
+    <div class="filter-tabs" id="competitor-filter-tabs">
+        <button class="filter-tab active" onclick="filterCompetitorTable('all', this)">All</button>
+        <button class="filter-tab" onclick="filterCompetitorTable('LOW', this)">LOW</button>
+        <button class="filter-tab" onclick="filterCompetitorTable('MEDIUM', this)">MEDIUM</button>
+        <button class="filter-tab" onclick="filterCompetitorTable('HIGH', this)">HIGH</button>
+    </div>
+    <div class="search-box"><input type="text" placeholder="Search businesses..." onkeyup="searchTable(this, 'competitor-table')"></div>
+    <div class="table-wrap">
+        <table id="competitor-table">
+            <thead><tr><th>#</th><th>Business</th><th>City</th><th>Reviews</th><th>Gap</th><th>Urgency</th><th>#1 Comp</th><th>#1 Rev</th><th>#2 Comp</th><th>#2 Rev</th><th>#3 Comp</th><th>#3 Rev</th><th>Email</th><th>Phone</th></tr></thead>
+            <tbody>{% for row in competitor_data %}<tr data-urgency="{{ row.urgency }}">
+                <td>{{ loop.index }}</td>
+                <td>{{ row.business_name or '---' }}</td>
+                <td>{{ row.city or '---' }}</td>
+                <td>{{ row.review_count|int if row.review_count else '---' }}</td>
+                <td>
+                    <span style="font-weight:600;">{{ row.competitive_gap_score }}/10</span>
+                    <span class="score-bar"><span class="score-fill" data-w="{{ row.competitive_gap_score * 10 }}" data-c="{% if row.competitive_gap_score <= 3 %}fill-green{% elif row.competitive_gap_score <= 6 %}fill-yellow{% else %}fill-red{% endif %}"></span></span>
+                </td>
+                <td><span class="label urgency-{{ row.urgency }}">{{ row.urgency }}</span></td>
+                <td>{{ row.top1_name or '---' }}</td>
+                <td>{{ row.top1_reviews }}</td>
+                <td>{{ row.top2_name or '---' }}</td>
+                <td>{{ row.top2_reviews }}</td>
+                <td>{{ row.top3_name or '---' }}</td>
+                <td>{{ row.top3_reviews }}</td>
+                <td>{{ row.personal_email or '---' }}</td>
+                <td>{{ row.phone or '---' }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">No competitor data yet. Run Tool 6 first, then click "Run Competitor Intel".</div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterCompetitorTable(filter, btn) {
+    document.querySelectorAll('#competitor-filter-tabs .filter-tab').forEach(function(t){t.classList.remove('active');});
+    btn.classList.add('active');
+    document.querySelectorAll('#competitor-table tbody tr').forEach(function(row){
+        row.style.display = (filter === 'all' || row.getAttribute('data-urgency') === filter) ? '' : 'none';
+    });
+}
+document.querySelectorAll('.score-fill[data-w]').forEach(function(el){ el.style.width = el.getAttribute('data-w') + '%'; el.classList.add(el.getAttribute('data-c')); });
+</script>
+{% endblock %}
