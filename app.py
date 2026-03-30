@@ -1864,6 +1864,25 @@ def page_tool1():
     return render_template("tool1.html", active_page="tool1", raw_data=_load_csv(RAW_CSV))
 
 
+@app.route("/pipeline-results")
+@login_required
+def page_pipeline_results():
+    """Single page showing all tool results in one view."""
+    return render_template(
+        "pipeline_results.html",
+        active_page="pipeline_results",
+        scored_data=_load_csv(SCORED_CSV),
+        ads_data=_load_csv(ADS_CSV),
+        website_data=_load_csv(WEBSITE_CSV),
+        contacts_data=_load_csv(CONTACTS_CSV),
+        gbp_data=_load_csv(GBP_CSV),
+        competitor_data=_load_csv(COMPETITOR_CSV),
+        calculated_data=_load_csv(CALCULATED_CSV),
+        emails_data=_load_csv(EMAILS_CSV),
+        audit_files=_load_audit_files(),
+    )
+
+
 @app.route("/tool/scorer")
 @login_required
 def page_tool2():
@@ -2085,33 +2104,44 @@ def run_pipeline():
         ("tool10", "Tool 10 — PDF Generator", run_tool10),
     ]
     errors = []
-    for key, label, func in tools:
-        job_status["pipeline_msg"] = f"Running {label}..."
-        try:
-            func()
-            if job_status[key] == "error":
-                errors.append(f"{label}: {job_status[key + '_msg']}")
-        except Exception as e:
-            errors.append(f"{label}: {e}")
+    try:
+        with app.app_context():
+            for key, label, func in tools:
+                job_status["pipeline_msg"] = f"Running {label}..."
+                try:
+                    func()
+                    if job_status[key] == "error":
+                        errors.append(f"{label}: {job_status[key + '_msg']}")
+                except Exception as e:
+                    logger.error("Pipeline tool %s failed: %s", label, e, exc_info=True)
+                    job_status[key] = "error"
+                    job_status[key + "_msg"] = str(e)
+                    errors.append(f"{label}: {e}")
 
-    # Build summary
-    summary_parts = []
-    if _csv_exists(RAW_CSV):
-        _df = _load_df(RAW_CSV)
-        summary_parts.append(f"Companies: {len(_df)}")
-    if _csv_exists(HOT_CSV):
-        _df = _load_df(HOT_CSV)
-        summary_parts.append(f"HOT: {len(_df)}")
-    if _csv_exists(EMAILS_CSV):
-        _df = _load_df(EMAILS_CSV)
-        summary_parts.append(f"Emails: {len(_df)}")
-    if os.path.exists(AUDITS_DIR):
-        pdfs = [f for f in os.listdir(AUDITS_DIR) if f.endswith(".pdf")]
-        summary_parts.append(f"PDFs: {len(pdfs)}")
+            # Build summary
+            summary_parts = []
+            if _csv_exists(RAW_CSV):
+                _df = _load_df(RAW_CSV)
+                summary_parts.append(f"Companies: {len(_df)}")
+            if _csv_exists(HOT_CSV):
+                _df = _load_df(HOT_CSV)
+                summary_parts.append(f"HOT: {len(_df)}")
+            if _csv_exists(EMAILS_CSV):
+                _df = _load_df(EMAILS_CSV)
+                summary_parts.append(f"Emails: {len(_df)}")
+            if os.path.exists(AUDITS_DIR):
+                pdfs = [f for f in os.listdir(AUDITS_DIR) if f.endswith(".pdf")]
+                summary_parts.append(f"PDFs: {len(pdfs)}")
 
-    msg = "Pipeline complete. " + " | ".join(summary_parts)
-    if errors:
-        msg += f" | {len(errors)} error(s): " + "; ".join(errors)
+            msg = "Pipeline complete. " + " | ".join(summary_parts)
+            if errors:
+                msg += f" | {len(errors)} error(s): " + "; ".join(errors)
+    except Exception as e:
+        logger.error("Pipeline crashed: %s", e, exc_info=True)
+        msg = f"Pipeline crashed: {e}"
+        if errors:
+            msg += f" | Previous errors: " + "; ".join(errors)
+
     job_status["pipeline"] = "done"
     job_status["pipeline_msg"] = msg
 
@@ -3158,37 +3188,48 @@ def _run_import_pipeline():
         ("tool10", "Tool 10 — PDF Generator", run_tool10),
     ]
     errors = []
-    for i, (key, label, func) in enumerate(tools):
-        job_status["pipeline_msg"] = f"[{i + 1}/8] Running {label}..."
-        try:
-            func()
-            if job_status[key] == "error":
-                errors.append(f"{label}: {job_status[key + '_msg']}")
-        except Exception as e:
-            errors.append(f"{label}: {e}")
+    try:
+        with app.app_context():
+            for i, (key, label, func) in enumerate(tools):
+                job_status["pipeline_msg"] = f"[{i + 1}/8] Running {label}..."
+                try:
+                    func()
+                    if job_status[key] == "error":
+                        errors.append(f"{label}: {job_status[key + '_msg']}")
+                except Exception as e:
+                    logger.error("Pipeline tool %s failed: %s", label, e, exc_info=True)
+                    job_status[key] = "error"
+                    job_status[key + "_msg"] = str(e)
+                    errors.append(f"{label}: {e}")
 
-    # Build summary
-    summary_parts = []
-    if _csv_exists(SCORED_CSV):
-        _df = _load_df(SCORED_CSV)
-        if _df is not None:
-            summary_parts.append(f"Total leads: {len(_df)}")
-    if _csv_exists(HOT_CSV):
-        _df = _load_df(HOT_CSV)
-        if _df is not None:
-            summary_parts.append(f"HOT: {len(_df)}")
-    if _csv_exists(EMAILS_CSV):
-        _df = _load_df(EMAILS_CSV)
-        if _df is not None:
-            summary_parts.append(f"Emails: {len(_df)}")
-    if os.path.exists(AUDITS_DIR):
-        pdfs = [f for f in os.listdir(AUDITS_DIR) if f.endswith(".pdf")]
-        if pdfs:
-            summary_parts.append(f"PDFs: {len(pdfs)}")
+            # Build summary
+            summary_parts = []
+            if _csv_exists(SCORED_CSV):
+                _df = _load_df(SCORED_CSV)
+                if _df is not None:
+                    summary_parts.append(f"Total leads: {len(_df)}")
+            if _csv_exists(HOT_CSV):
+                _df = _load_df(HOT_CSV)
+                if _df is not None:
+                    summary_parts.append(f"HOT: {len(_df)}")
+            if _csv_exists(EMAILS_CSV):
+                _df = _load_df(EMAILS_CSV)
+                if _df is not None:
+                    summary_parts.append(f"Emails: {len(_df)}")
+            if os.path.exists(AUDITS_DIR):
+                pdfs = [f for f in os.listdir(AUDITS_DIR) if f.endswith(".pdf")]
+                if pdfs:
+                    summary_parts.append(f"PDFs: {len(pdfs)}")
 
-    msg = "Import pipeline complete! " + " | ".join(summary_parts)
-    if errors:
-        msg += f" | {len(errors)} error(s): " + "; ".join(errors)
+            msg = "Import pipeline complete! " + " | ".join(summary_parts)
+            if errors:
+                msg += f" | {len(errors)} error(s): " + "; ".join(errors)
+    except Exception as e:
+        logger.error("Import pipeline crashed: %s", e, exc_info=True)
+        msg = f"Pipeline crashed: {e}"
+        if errors:
+            msg += f" | Previous errors: " + "; ".join(errors)
+
     job_status["pipeline"] = "done"
     job_status["pipeline_msg"] = msg
 

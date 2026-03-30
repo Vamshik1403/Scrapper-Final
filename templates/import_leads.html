@@ -518,6 +518,78 @@
         fetch('/import-leads/clear', { method: 'POST' })
         .then(function(r) { return r.json(); })
         .then(function() { location.reload(); });
+
+    }
+
+    /* ===== ON PAGE LOAD: Check if pipeline is already running ===== */
+    (function checkPipelineOnLoad() {
+        fetch('/status')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var pipelineState = data.pipeline || 'idle';
+            if (pipelineState === 'running') {
+                // Pipeline is running — show tracker and start polling
+                var tracker = document.getElementById('pipeline-tracker');
+                tracker.style.display = 'block';
+                document.getElementById('pipeline-status-text').textContent = data.pipeline_msg || 'Pipeline is running...';
+                document.getElementById('pipeline-result').style.display = 'none';
+
+                // Disable buttons
+                var btn = document.getElementById('btn-run-pipeline');
+                if (btn) { btn.disabled = true; btn.innerHTML = '&#x23F3; Running...'; }
+                var pushBtn = document.getElementById('btn-push-pipeline');
+                if (pushBtn) pushBtn.disabled = true;
+
+                // Update step indicators from current state
+                var completedCount = 0;
+                pipelineTools.forEach(function(tool) {
+                    var step = document.querySelector('.pipeline-step[data-tool="' + tool + '"]');
+                    if (!step) return;
+                    var toolState = data[tool] || 'idle';
+                    step.className = 'pipeline-step';
+                    if (toolState === 'done') { step.classList.add('done'); completedCount++; }
+                    else if (toolState === 'running') { step.classList.add('active'); }
+                    else if (toolState === 'error') { step.classList.add('error'); completedCount++; }
+                });
+                var pct = Math.round((completedCount / pipelineTools.length) * 100);
+                document.getElementById('pipeline-fill').style.width = pct + '%';
+
+                // Start polling
+                startPipelinePolling();
+            } else if (pipelineState === 'done') {
+                // Pipeline finished — show the result
+                var completedCount = 0;
+                pipelineTools.forEach(function(tool) {
+                    var toolState = data[tool] || 'idle';
+                    if (toolState === 'done' || toolState === 'error') completedCount++;
+                });
+                // Only show if tools actually ran (not stale idle state)
+                if (completedCount > 0) {
+                    var tracker = document.getElementById('pipeline-tracker');
+                    tracker.style.display = 'block';
+                    document.getElementById('pipeline-fill').style.width = '100%';
+                    document.getElementById('pipeline-status-text').textContent = 'Pipeline completed!';
+
+                    pipelineTools.forEach(function(tool) {
+                        var step = document.querySelector('.pipeline-step[data-tool="' + tool + '"]');
+                        if (!step) return;
+                        var toolState = data[tool] || 'idle';
+                        step.className = 'pipeline-step';
+                        if (toolState === 'done') step.classList.add('done');
+                        else if (toolState === 'error') step.classList.add('error');
+                    });
+
+                    var resultBox = document.getElementById('pipeline-result');
+                    resultBox.style.display = 'block';
+                    resultBox.textContent = data.pipeline_msg || 'Pipeline complete!';
+                    resultBox.style.background = 'rgba(34,197,94,0.1)';
+                    resultBox.style.color = '#86efac';
+                    resultBox.style.border = '1px solid rgba(34,197,94,0.3)';
+                }
+            }
+        })
+        .catch(function() { /* ignore — page just loaded */ });
+    })();
     }
 
     function resetImport() {

@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% block title %}Pipeline Results — GarageLeadsPro{% endblock %}
+{% block topbar_title %}Pipeline Results{% endblock %}
+{% block topbar_badge %}All Tools{% endblock %}
+
+{% block extra_css %}
+<style>
+    .pr-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 24px; }
+    .pr-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 12px; text-align: center; }
+    .pr-stat-num { font-size: 26px; font-weight: 800; line-height: 1; margin-bottom: 2px; }
+    .pr-stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); font-weight: 600; }
+
+    .pr-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 16px; overflow: hidden; }
+    .pr-section-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 20px; cursor: pointer; user-select: none; transition: background 0.15s; }
+    .pr-section-header:hover { background: rgba(139,92,246,0.05); }
+    .pr-section-header h3 { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 10px; margin: 0; }
+    .pr-section-header .pr-count { font-size: 11px; font-weight: 600; background: rgba(139,92,246,0.15); color: #c4b5fd; padding: 2px 10px; border-radius: 12px; }
+    .pr-section-header .pr-arrow { font-size: 12px; color: var(--text-muted); transition: transform 0.2s; }
+    .pr-section.open .pr-arrow { transform: rotate(180deg); }
+    .pr-section-body { display: none; padding: 0 20px 16px; }
+    .pr-section.open .pr-section-body { display: block; }
+
+    .pr-badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .pr-badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 12px; }
+    .pr-badge-hot { background: rgba(239,68,68,0.12); color: #fca5a5; }
+    .pr-badge-warm { background: rgba(245,158,11,0.12); color: #fcd34d; }
+    .pr-badge-cold { background: rgba(59,130,246,0.12); color: #93c5fd; }
+    .pr-badge-green { background: rgba(34,197,94,0.12); color: #86efac; }
+    .pr-badge-purple { background: rgba(139,92,246,0.12); color: #c4b5fd; }
+    .pr-badge-muted { background: rgba(100,116,139,0.12); color: #94a3b8; }
+
+    .pr-empty { font-size: 12px; color: var(--text-muted); padding: 12px 0; font-style: italic; }
+
+    .pr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .pr-table th { background: var(--bg-input); padding: 8px 10px; text-align: left; font-weight: 600; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 1px solid var(--border); white-space: nowrap; position: sticky; top: 0; }
+    .pr-table td { padding: 7px 10px; border-bottom: 1px solid rgba(30,41,59,0.5); color: var(--text-primary); }
+    .pr-table tbody tr:hover { background: rgba(139,92,246,0.04); }
+    .pr-table a { color: var(--accent-purple); text-decoration: none; }
+    .pr-table a:hover { text-decoration: underline; }
+
+    .pr-table-wrap { max-height: 400px; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+
+    .pr-search { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--bg-input); color: var(--text-primary); font-size: 12px; font-family: inherit; margin-bottom: 10px; }
+    .pr-search:focus { outline: none; border-color: var(--accent-purple); }
+
+    .check-true, .check-yes { color: var(--accent-green); }
+    .check-false, .check-no { color: var(--text-muted); }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- KPI SUMMARY -->
+<div class="pr-summary animate-in">
+    <div class="pr-stat"><div class="pr-stat-num" style="color:#c4b5fd;">{{ scored_data|length if scored_data else 0 }}</div><div class="pr-stat-label">Scored Leads</div></div>
+    <div class="pr-stat"><div class="pr-stat-num" style="color:#fca5a5;">{% if scored_data %}{{ scored_data|selectattr("prospect_label","equalto","HOT")|list|length }}{% else %}0{% endif %}</div><div class="pr-stat-label">HOT</div></div>
+    <div class="pr-stat"><div class="pr-stat-num" style="color:#fcd34d;">{% if scored_data %}{{ scored_data|selectattr("prospect_label","equalto","WARM")|list|length }}{% else %}0{% endif %}</div><div class="pr-stat-label">WARM</div></div>
+    <div class="pr-stat"><div class="pr-stat-num" style="color:#86efac;">{{ contacts_data|length if contacts_data else 0 }}</div><div class="pr-stat-label">Contacts</div></div>
+    <div class="pr-stat"><div class="pr-stat-num" style="color:#93c5fd;">{{ emails_data|length if emails_data else 0 }}</div><div class="pr-stat-label">Emails</div></div>
+    <div class="pr-stat"><div class="pr-stat-num" style="color:#fbbf24;">{{ audit_files|length if audit_files else 0 }}</div><div class="pr-stat-label">PDFs</div></div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TOOL 2 — SCORED LEADS -->
+<!-- ================================================================== -->
+<div class="pr-section open animate-in" id="sec-scored">
+    <div class="pr-section-header" onclick="toggleSection('sec-scored')">
+        <h3><span class="tool-num">2</span> Review Scorer <span class="pr-count">{{ scored_data|length if scored_data else 0 }} leads</span></h3>
+        <span class="pr-arrow">&#x25BC;</span>
+    </div>
+    <div class="pr-section-body">
+    {% if scored_data %}
+        <div class="pr-badges">
+            <span class="pr-badge pr-badge-hot">HOT: {{ scored_data|selectattr("prospect_label","equalto","HOT")|list|length }}</span>
+            <span class="pr-badge pr-badge-warm">WARM: {{ scored_data|selectattr("prospect_label","equalto","WARM")|list|length }}</span>
+            <span class="pr-badge pr-badge-cold">COLD: {{ scored_data|selectattr("prospect_label","equalto","COLD")|list|length }}</span>
+        </div>
+        <input class="pr-search" placeholder="Search scored leads..." onkeyup="prSearch(this, 'tbl-scored')">
+        <div class="pr-table-wrap">
+        <table class="pr-table" id="tbl-scored">
+            <thead><tr><th>#</th><th>Business</th><th>Phone</th><th>Website</th><th>City</th><th>Rating</th><th>Reviews</th><th>Score</th><th>Label</th></tr></thead>
+            <tbody>{% for r in scored_data %}<tr>
+                <td>{{ loop.index }}</td><td>{{ r.business_name or '---' }}</td><td>{{ r.phone or '---' }}</td>
+                <td>{% if r.website %}<a href="{{ r.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                <td>{{ r.city or '---' }}</td><td>{{ r.rating or '---' }}</td><td>{{ r.review_count|int if r.review_count else '---' }}</td>
+                <td>{{ r.review_score }}</td><td><span class="label label-{{ r.prospect_label }}">{{ r.prospect_label }}</span></td>
+            </tr>{% endfor %}</tbody>
+        </table>
+        </div>
+    {% else %}<div class="pr-empty">No scored data. Run Tool 2 or push imported leads.</div>{% endif %}
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TOOL 3 — ADS CHECKER -->
+<!-- ================================================================== -->
+<div class="pr-section animate-in" id="sec-ads">
+    <div class="pr-section-header" onclick="toggleSection('sec-ads')">
+        <h3><span class="tool-num">3</span> Ads Checker <span class="pr-count">{{ ads_data|length if ads_data else 0 }} leads</span></h3>
+        <span class="pr-arrow">&#x25BC;</span>
+    </div>
+    <div class="pr-section-body">
+    {% if ads_data %}
+        {% set ads_yes = ads_data|selectattr("ads_running","equalto","YES")|list|length %}
+        {% set ads_no = ads_data|selectattr("ads_running","equalto","NO")|list|length %}
+        <div class="pr-badges">
+            <span class="pr-badge pr-badge-hot">HOT + No Ads: {{ ads_data|selectattr("prospect_label","equalto","HOT")|selectattr("ads_running","equalto","NO")|list|length }}</span>
+            <span class="pr-badge pr-badge-warm">Running Ads: {{ ads_yes }}</span>
+            <span class="pr-badge pr-badge-green">No Ads: {{ ads_no }}</span>
+        </div>
+        <input class="pr-search" placeholder="Search ads data..." onkeyup="prSearch(this, 'tbl-ads')">
+        <div class="pr-table-wrap">
+        <table class="pr-table" id="tbl-ads">
+            <thead><tr><th>#</th><th>Business</th><th>City</th><th>Reviews</th><th>Label</th><th>Ads?</th><th>Ad Count</th></tr></thead>
+            <tbody>{% for r in ads_data %}<tr>
+                <td>{{ loop.index }}</td><td>{{ r.business_name or '---' }}</td><td>{{ r.city or '---' }}</td>
+                <td>{{ r.review_count|int if r.review_count else '---' }}</td>
+                <td><span class="label label-{{ r.prospect_label }}">{{ r.prospect_label }}</span></td>
+                <td><span class="ads-{{ r.ads_running|lower }}">{{ r.ads_running }}</span></td><td>{{ r.ads_count }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+        </div>
+    {% else %}<div class="pr-empty">No ads data. Run Tool 3.</div>{% endif %}
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TOOL 4 — WEBSITE CHECKER -->
+<!-- ================================================================== -->
+<div class="pr-section animate-in" id="sec-website">
+    <div class="pr-section-header" onclick="toggleSection('sec-website')">
+        <h3><span class="tool-num">4</span> Website Checker <span class="pr-count">{{ website_data|length if website_data else 0 }} leads</span></h3>
+        <span class="pr-arrow">&#x25BC;</span>
+    </div>
+    <div class="pr-section-body">
+    {% if website_data %}
+        <div class="pr-badges">
+            <span class="pr-badge pr-badge-hot">BAD: {{ website_data|selectattr("website_quality","equalto","BAD")|list|length }}</span>
+            <span class="pr-badge pr-badge-warm">BASIC: {{ website_data|selectattr("website_quality","equalto","BASIC")|list|length }}</span>
+            <span class="pr-badge pr-badge-green">GOOD: {{ website_data|selectattr("website_quality","equalto","GOOD")|list|length }}</span>
+        </div>
+        <input class="pr-search" placeholder="Search website data..." onkeyup="prSearch(this, 'tbl-website')">
+        <div class="pr-table-wrap">
+        <table class="pr-table" id="tbl-website">
+            <thead><tr><th>#</th><th>Business</th><th>City</th><th>Label</th><th>Quality</th><th>Score</th><th>Speed</th><th>Mobile</th><th>Phone</th><th>Form</th><th>HTTPS</th><th>Platform</th></tr></thead>
+            <tbody>{% for r in website_data %}<tr>
+                <td>{{ loop.index }}</td><td>{{ r.business_name or '---' }}</td><td>{{ r.city or '---' }}</td>
+                <td><span class="label label-{{ r.prospect_label }}">{{ r.prospect_label }}</span></td>
+                <td><strong>{{ r.website_quality }}</strong></td><td>{{ r.website_score }}/10</td>
+                <td>{{ r.load_speed if r.load_speed else '---' }}s</td>
+                <td class="check-{{ r.has_mobile|string|lower }}">{{ 'Yes' if r.has_mobile else 'No' }}</td>
+                <td class="check-{{ r.has_phone|string|lower }}">{{ 'Yes' if r.has_phone else 'No' }}</td>
+                <td class="check-{{ r.has_form|string|lower }}">{{ 'Yes' if r.has_form else 'No' }}</td>
+                <td class="check-{{ r.has_https|string|lower }}">{{ 'Yes' if r.has_https else 'No' }}</td>
+                <td>{{ r.platform or '---' }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+        </div>
+    {% else %}<div class="pr-empty">No website data. Run Tool 4.</div>{% endif %}
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TOOL 5 — CONTACT FINDER -->
+<!-- ================================================================== -->
+<div class="pr-section animate-in" id="sec-contacts">
+    <div class="pr-section-header" onclick="toggleSection('sec-contacts')">
+        <h3><span class="tool-num">5</span> Contact Finder <span class="pr-count">{{ contacts_data|length if contacts_data else 0 }} contacts</span></h3>
+        <span class="pr-arrow">&#x25BC;</span>
+    </div>
+    <div class="pr-section-body">
+    {% if contacts_data %}
+        {% set valid_emails = contacts_data|selectattr("email_status","equalto","VALID")|list|length %}
+        {% set scraped = contacts_data|selectattr("email_source","equalto","SCRAPED")|list|length %}
+        <div class="pr-badges">
+            <span class="pr-badge pr-badge-green">Valid Emails: {{ valid_emails }}</span>
+            <span class="pr-badge pr-badge-purple">Scraped: {{ scraped }}</span>
+            <span class="pr-badge pr-badge-muted">Total: {{ contacts_data|length }}</span>
+        </div>
+        <input class="pr-search" placeholder="Search contacts..." onkeyup="prSearch(this, 'tbl-contacts')">
+        <div class="pr-table-wrap">
+        <table class="pr-table" id="tbl-contacts">
+            <thead><tr><th>#</th><th>Business</th><th>Owner</th><th>Email</th><th>Source</th><th>Status</th><th>Phone</th><th>City</th></tr></thead>
+            <tbody>{% for r in contacts_data %}<tr>
+                <td>{{ loop.index }}</td><td>{{ r.business_name or '---' }}</td><td>{{ r.owner_name or '---' }}</td>
+                <td>{{ r.personal_email or '---' }}</td><td>{{ r.email_source or '---' }}</td>
+                <td><span class="label label-{{ r.email_status|default('UNKNOWN') }}">{{ r.email_status or '---' }}</span></td>
+                <td>{{ r.direct_phone or r.phone or '---' }}</td><td>{{ r.city or '---' }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+        </div>
+    {% else %}<div class="pr-empty">No contact data. Run Tool 5.</div>{% endif %}
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TOOL 6 — GBP ANALYSER -->
+<!-- ================================================================== -->
+<div class="pr-section animate-in" id="sec-gbp">
+    <div class="pr-section-header" onclick="toggleSection('sec-gbp')">
+        <h3><span class="tool-num">6</span> GBP Analyser <span class="pr-count">{{ gbp_data|length if gbp_data else 0 }} profiles</span></h3>
+        <span class="pr-arrow">&#x25BC;</span>
+    </div>
+    <div class="pr-section-body">
+    {% if gbp_data %}
+        <div class="pr-badges">
+            <span class="pr-badge pr-badge-hot">POOR: {{ gbp_data|selectattr("gbp_label","equalto","POOR")|list|length }}</span>
+            <span class="pr-badge pr-badge-warm">AVERAGE: {{ gbp_data|selectattr("gbp_label","equalto","AVERAGE")|list|length }}</span>
+            <span class="pr-badge pr-badge-green">STRONG: {{ gbp_data|selectattr("gbp_label","equalto","STRONG")|list|length }}</span>
+        </div>
+        <input class="pr-search" placeholder="Search GBP data..." onkeyup="prSearch(this, 'tbl-gbp')">
+        <div class="pr-table-wrap">
+        <table class="pr-table" id="tbl-gbp">
+            <thead><tr><th>#</th><th>Business</th><th>City</th><th>GBP Score</th><th>GBP Label</th><th>Photos</th><th>Services</th><th>Desc</th><th>Hours</th><th>Posts</th><th>Reply %</th></tr></thead>
+            <tbody>{% for r in gbp_data %}<tr>
+                <td>{{ loop.index }}</td><td>{{ r.business_name or '---' }}</td><td>{{ r.city or '---' }}</td>
+                <td>{{ r.gbp_score }}/100</td>
+                <td><span class="label gbp-{{ r.gbp_label }}">{{ r.gbp_label }}</span></td>
+                <td>{{ r.gbp_photos }}</td><td>{{ r.gbp_services }}</td>
+                <td class="check-{{ r.gbp_has_description|string|lower }}">{{ 'Yes' if r.gbp_has_description else 'No' }}</td>
+                <td class="check-{{ r.gbp_has_hours|string|lower }}">{{ 'Yes' if r.gbp_has_hours else 'No' }}</td>
+                <td class="check-{{ r.gbp_has_posts|string|lower }}">{{ 'Yes' if r.gbp_has_posts else 'No' }}</td>
+                <td>{{ (r.gbp_reply_rate * 100)|int }}%</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+        </div>
+    {% else %}<div class="pr-empty">No GBP data. Run Tool 6.</div>{% endif %}
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TOOL 7 — COMPETITOR INTEL -->
+<!-- ================================================================== -->
+<div class="pr-section animate-in" id="sec-competitor">
+    <div class="pr-section-header" onclick="toggleSection('sec-competitor')">
+        <h3><span class="tool-num">7</span> Competitor Intel <span class="pr-count">{{ competitor_data|length if competitor_data else 0 }} leads</span></h3>
+        <span class="pr-arrow">&#x25BC;</span>
+    </div>
+    <div class="pr-section-body">
+    {% if competitor_data %}
+        <div class="pr-badges">
+            <span class="pr-badge pr-badge-hot">HIGH Urgency: {{ competitor_data|selectattr("urgency","equalto","HIGH")|list|length }}</span>
+            <span class="pr-badge pr-badge-warm">MEDIUM: {{ competitor_data|selectattr("urgency","equalto","MEDIUM")|list|length }}</span>
+            <span class="pr-badge pr-badge-muted">LOW: {{ competitor_data|selectattr("urgency","equalto","LOW")|list|length }}</span>
+        </div>
+        <input class="pr-search" placeholder="Search competitor data..." onkeyup="prSearch(this, 'tbl-competitor')">
+        <div class="pr-table-wrap">
+        <table class="pr-table" id="tbl-competitor">
+            <thead><tr><th>#</th><th>Business</th><th>City</th><th>Reviews</th><th>Gap Score</th><th>Urgency</th><th>Top 1</th><th>Top 1 Reviews</th><th>Top 2</th><th>Top 2 Reviews</th></tr></thead>
+            <tbody>{% for r in competitor_data %}<tr>
+                <td>{{ loop.index }}</td><td>{{ r.business_name or '---' }}</td><td>{{ r.city or '---' }}</td>
+                <td>{{ r.review_count|int if r.review_count else '---' }}</td>
+                <td>{{ r.competitive_gap_score }}/9</td>
+                <td><span class="label label-{{ r.urgency }}">{{ r.urgency }}</span></td>
+                <td>{{ r.top1_name or '---' }}</td><td>{{ r.top1_reviews }}</td>
+                <td>{{ r.top2_name or '---' }}</td><td>{{ r.top2_reviews }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+        </div>
+    {% else %}<div class="pr-empty">No competitor data. Run Tool 7.</div>{% endif %}
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TOOL 8 — VALUE CALCULATOR -->
+<!-- ================================================================== -->
+<div class="pr-section animate-in" id="sec-value">
+    <div class="pr-section-header" onclick="toggleSection('sec-value')">
+        <h3><span class="tool-num">8</span> Value Calculator <span class="pr-count">{{ calculated_data|length if calculated_data else 0 }} leads</span></h3>
+        <span class="pr-arrow">&#x25BC;</span>
+    </div>
+    <div class="pr-section-body">
+    {% if calculated_data %}
+        <input class="pr-search" placeholder="Search value data..." onkeyup="prSearch(this, 'tbl-value')">
+        <div class="pr-table-wrap">
+        <table class="pr-table" id="tbl-value">
+            <thead><tr><th>#</th><th>Business</th><th>City</th><th>ROI Multiple</th><th>Monthly Value</th><th>Gap Score</th><th>GBP Score</th><th>Website</th><th>Value Summary</th></tr></thead>
+            <tbody>{% for r in calculated_data %}<tr>
+                <td>{{ loop.index }}</td><td>{{ r.business_name or '---' }}</td><td>{{ r.city or '---' }}</td>
+                <td><strong>{{ r.roi_multiple }}x</strong></td><td>${{ r.monthly_value }}</td>
+                <td>{{ r.competitive_gap_score }}/9</td><td>{{ r.gbp_score }}/100</td>
+                <td>{{ r.website_quality or '---' }}</td>
+                <td style="font-size:11px;color:var(--text-muted);max-width:250px;">{{ r.value_summary_sentence or '---' }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+        </div>
+    {% else %}<div class="pr-empty">No value data. Run Tool 8.</div>{% endif %}
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TOOL 9 — EMAIL PERSONALISER -->
+<!-- ================================================================== -->
+<div class="pr-section animate-in" id="sec-emails">
+    <div class="pr-section-header" onclick="toggleSection('sec-emails')">
+        <h3><span class="tool-num">9</span> Email Personaliser <span class="pr-count">{{ emails_data|length if emails_data else 0 }} emails</span></h3>
+        <span class="pr-arrow">&#x25BC;</span>
+    </div>
+    <div class="pr-section-body">
+    {% if emails_data %}
+        <input class="pr-search" placeholder="Search emails..." onkeyup="prSearch(this, 'tbl-emails')">
+        <div class="pr-table-wrap">
+        <table class="pr-table" id="tbl-emails">
+            <thead><tr><th>#</th><th>Business</th><th>Owner</th><th>Subject</th><th>Custom Opener</th></tr></thead>
+            <tbody>{% for r in emails_data %}<tr>
+                <td>{{ loop.index }}</td><td>{{ r.business_name or '---' }}</td><td>{{ r.owner_name or '---' }}</td>
+                <td>{{ r.email_subject or '---' }}</td>
+                <td style="font-size:11px;color:var(--text-muted);max-width:350px;line-height:1.4;">{{ r.custom_opener or '---' }}</td>
+            </tr>{% endfor %}</tbody>
+        </table>
+        </div>
+    {% else %}<div class="pr-empty">No email data. Run Tool 9.</div>{% endif %}
+    </div>
+</div>
+
+<!-- ================================================================== -->
+<!-- TOOL 10 — PDF GENERATOR -->
+<!-- ================================================================== -->
+<div class="pr-section animate-in" id="sec-pdfs">
+    <div class="pr-section-header" onclick="toggleSection('sec-pdfs')">
+        <h3><span class="tool-num">10</span> PDF Audit Generator <span class="pr-count">{{ audit_files|length if audit_files else 0 }} PDFs</span></h3>
+        <span class="pr-arrow">&#x25BC;</span>
+    </div>
+    <div class="pr-section-body">
+    {% if audit_files %}
+        <input class="pr-search" placeholder="Search PDFs..." onkeyup="prSearch(this, 'tbl-pdfs')">
+        <div class="pr-table-wrap">
+        <table class="pr-table" id="tbl-pdfs">
+            <thead><tr><th>#</th><th>Audit File</th><th>Download</th></tr></thead>
+            <tbody>{% for f in audit_files %}<tr>
+                <td>{{ loop.index }}</td><td>{{ f }}</td>
+                <td><a href="/download/audit/{{ f }}" class="btn btn-green" style="font-size:11px;padding:4px 12px;">Download PDF</a></td>
+            </tr>{% endfor %}</tbody>
+        </table>
+        </div>
+    {% else %}<div class="pr-empty">No PDFs generated. Run Tool 10.</div>{% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleSection(id) {
+    var el = document.getElementById(id);
+    el.classList.toggle('open');
+}
+
+function prSearch(input, tableId) {
+    var filter = input.value.toLowerCase();
+    var rows = document.querySelectorAll('#' + tableId + ' tbody tr');
+    rows.forEach(function(row) {
+        row.style.display = row.textContent.toLowerCase().indexOf(filter) > -1 ? '' : 'none';
+    });
+}
+
+// Expand All / Collapse All keyboard shortcut (Ctrl+E)
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        var sections = document.querySelectorAll('.pr-section');
+        var allOpen = true;
+        sections.forEach(function(s) { if (!s.classList.contains('open')) allOpen = false; });
+        sections.forEach(function(s) {
+            if (allOpen) s.classList.remove('open');
+            else s.classList.add('open');
+        });
+    }
+});
+</script>
+{% endblock %}
