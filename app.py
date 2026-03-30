@@ -3033,6 +3033,166 @@ def import_process():
     })
 
 
+@app.route("/import-leads/push-to-pipeline", methods=["POST"])
+@login_required
+def import_push_to_pipeline():
+    """Feed imported leads into the main tool pipeline at step2 (scored) stage."""
+    if not _csv_exists(IMPORTED_CSV):
+        return jsonify({"status": "error", "msg": "No imported leads found. Upload and classify first."})
+
+    df = _load_df(IMPORTED_CSV)
+    if df is None or len(df) == 0:
+        return jsonify({"status": "error", "msg": "Imported leads file is empty."})
+
+    # Map import_score → review_score so the pipeline recognises it
+    if "import_score" in df.columns:
+        df["review_score"] = df["import_score"]
+    elif "review_score" not in df.columns:
+        df["review_score"] = 5
+
+    # Ensure all columns that Tool 1 normally produces exist
+    for col in ["business_name", "phone", "website", "address", "rating",
+                 "review_count", "place_id", "city", "prospect_label"]:
+        if col not in df.columns:
+            df[col] = ""
+
+    # Ensure numeric columns are clean
+    for num_col in ["rating", "review_count", "review_score"]:
+        df[num_col] = pd.to_numeric(df[num_col], errors="coerce").fillna(0)
+
+    # Save as step2_scored.csv — this is where Tool 3 picks up
+    _save_csv(SCORED_CSV, df)
+
+    # Clear all downstream pipeline files so stale data from a previous run
+    # doesn't bleed through — each tool will regenerate its own output
+    for downstream in [ADS_CSV, WEBSITE_CSV, HOT_CSV, WARM_CSV,
+                       CONTACTS_CSV, GBP_CSV, COMPETITOR_CSV,
+                       CALCULATED_CSV, EMAILS_CSV]:
+        key = _CSV_KEY_MAP.get(downstream)
+        if key:
+            try:
+                with _db_ctx():
+                    ToolResult.query.filter_by(key=key).delete()
+                    db.session.commit()
+            except Exception:
+                pass
+        if os.path.exists(downstream):
+            os.remove(downstream)
+
+    hot = int((df["prospect_label"] == "HOT").sum())
+    warm = int((df["prospect_label"] == "WARM").sum())
+    cold = int((df["prospect_label"] == "COLD").sum())
+
+    return jsonify({
+        "status": "ok",
+        "msg": f"Pushed {len(df)} leads into pipeline — HOT: {hot} | WARM: {warm} | COLD: {cold}. You can now run Tools 3–10 from the sidebar.",
+        "total": len(df), "hot": hot, "warm": warm, "cold": cold,
+    })
+
+
+@app.route("/import-leads/run-pipeline", methods=["POST"])
+@login_required
+@limiter.limit("5 per hour")
+def import_run_pipeline():
+    """Push imported leads into the pipeline AND run Tools 3–10 automatically."""
+    if job_status["pipeline"] == "running":
+        return jsonify({"status": "running", "msg": "Pipeline is already running."})
+
+    if not _csv_exists(IMPORTED_CSV):
+        return jsonify({"status": "error", "msg": "No imported leads found. Upload and classify first."})
+
+    df = _load_df(IMPORTED_CSV)
+    if df is None or len(df) == 0:
+        return jsonify({"status": "error", "msg": "Imported leads file is empty."})
+
+    # --- Push to step2 (same logic as push-to-pipeline) ---
+    if "import_score" in df.columns:
+        df["review_score"] = df["import_score"]
+    elif "review_score" not in df.columns:
+        df["review_score"] = 5
+
+    for col in ["business_name", "phone", "website", "address", "rating",
+                 "review_count", "place_id", "city", "prospect_label"]:
+        if col not in df.columns:
+            df[col] = ""
+
+    for num_col in ["rating", "review_count", "review_score"]:
+        df[num_col] = pd.to_numeric(df[num_col], errors="coerce").fillna(0)
+
+    _save_csv(SCORED_CSV, df)
+
+    # Clear downstream
+    for downstream in [ADS_CSV, WEBSITE_CSV, HOT_CSV, WARM_CSV,
+                       CONTACTS_CSV, GBP_CSV, COMPETITOR_CSV,
+                       CALCULATED_CSV, EMAILS_CSV]:
+        key = _CSV_KEY_MAP.get(downstream)
+        if key:
+            try:
+                with _db_ctx():
+                    ToolResult.query.filter_by(key=key).delete()
+                    db.session.commit()
+            except Exception:
+                pass
+        if os.path.exists(downstream):
+            os.remove(downstream)
+
+    # Start pipeline in background thread (tools 3-10)
+    thread = threading.Thread(target=_run_import_pipeline)
+    thread.start()
+    return jsonify({"status": "started", "msg": "Full pipeline started on imported leads."})
+
+
+def _run_import_pipeline():
+    """Run tools 3–10 sequentially on imported data that was pushed to step2."""
+    job_status["pipeline"] = "running"
+    job_status["pipeline_msg"] = "Starting import pipeline (Tools 3–10)..."
+
+    tools = [
+        ("tool3", "Tool 3 — Ads Checker", run_tool3),
+        ("tool4", "Tool 4 — Website Checker", run_tool4),
+        ("tool5", "Tool 5 — Contact Finder", run_tool5),
+        ("tool6", "Tool 6 — GBP Analyser", run_tool6),
+        ("tool7", "Tool 7 — Competitor Intel", run_tool7),
+        ("tool8", "Tool 8 — Value Calculator", run_tool8),
+        ("tool9", "Tool 9 — Email Personaliser", run_tool9),
+        ("tool10", "Tool 10 — PDF Generator", run_tool10),
+    ]
+    errors = []
+    for i, (key, label, func) in enumerate(tools):
+        job_status["pipeline_msg"] = f"[{i + 1}/8] Running {label}..."
+        try:
+            func()
+            if job_status[key] == "error":
+                errors.append(f"{label}: {job_status[key + '_msg']}")
+        except Exception as e:
+            errors.append(f"{label}: {e}")
+
+    # Build summary
+    summary_parts = []
+    if _csv_exists(SCORED_CSV):
+        _df = _load_df(SCORED_CSV)
+        if _df is not None:
+            summary_parts.append(f"Total leads: {len(_df)}")
+    if _csv_exists(HOT_CSV):
+        _df = _load_df(HOT_CSV)
+        if _df is not None:
+            summary_parts.append(f"HOT: {len(_df)}")
+    if _csv_exists(EMAILS_CSV):
+        _df = _load_df(EMAILS_CSV)
+        if _df is not None:
+            summary_parts.append(f"Emails: {len(_df)}")
+    if os.path.exists(AUDITS_DIR):
+        pdfs = [f for f in os.listdir(AUDITS_DIR) if f.endswith(".pdf")]
+        if pdfs:
+            summary_parts.append(f"PDFs: {len(pdfs)}")
+
+    msg = "Import pipeline complete! " + " | ".join(summary_parts)
+    if errors:
+        msg += f" | {len(errors)} error(s): " + "; ".join(errors)
+    job_status["pipeline"] = "done"
+    job_status["pipeline_msg"] = msg
+
+
 @app.route("/import-leads/clear", methods=["POST"])
 @login_required
 def import_clear():

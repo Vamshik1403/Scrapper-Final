@@ -58,6 +58,22 @@
     .score-bar { width: 48px; height: 6px; border-radius: 3px; background: var(--border); position: relative; overflow: hidden; }
     .score-bar-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
     .reason-cell { font-size: 11px; color: var(--text-muted); max-width: 220px; line-height: 1.3; }
+
+    /* Pipeline Progress Tracker */
+    .pipeline-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 24px; }
+    .pipeline-card h3 { font-size: 15px; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+    .pipeline-card p { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+    .pipeline-steps { display: flex; gap: 0; margin-bottom: 16px; overflow-x: auto; }
+    .pipeline-step { flex: 1; min-width: 80px; text-align: center; padding: 10px 6px; font-size: 11px; font-weight: 600; color: var(--text-muted); background: var(--bg-input); border: 1px solid var(--border); position: relative; transition: all 0.3s; }
+    .pipeline-step:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+    .pipeline-step:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+    .pipeline-step.active { background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.4); color: #c4b5fd; }
+    .pipeline-step.done { background: rgba(34,197,94,0.1); border-color: rgba(34,197,94,0.3); color: #86efac; }
+    .pipeline-step.error { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.3); color: #fca5a5; }
+    .pipeline-step .step-num { display: block; font-size: 14px; font-weight: 800; margin-bottom: 2px; }
+    .pipeline-status-bar { width: 100%; height: 6px; border-radius: 3px; background: var(--border); overflow: hidden; margin-bottom: 12px; }
+    .pipeline-status-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #8b5cf6, #6366f1); transition: width 0.5s ease; }
+    .pipeline-msg-box { font-size: 13px; padding: 10px 16px; border-radius: var(--radius-sm); margin-bottom: 12px; }
 </style>
 {% endblock %}
 
@@ -131,10 +147,35 @@
     <div class="card-header">
         <h2><span class="tool-num" style="background:rgba(245,158,11,0.15);color:#fcd34d;">&#x1F4E5;</span> Imported Leads</h2>
         <div class="btn-group">
+            <button class="btn btn-primary" id="btn-run-pipeline" onclick="runFullPipeline()" style="background:linear-gradient(135deg,#8b5cf6,#6366f1);font-weight:700;">
+                &#x1F680; Run Full Pipeline
+            </button>
+            <button class="btn btn-primary" id="btn-push-pipeline" onclick="pushToPipeline()" style="background:linear-gradient(135deg,#6366f1,#4f46e5);font-size:11px;">
+                &#x2699; Push Only
+            </button>
             <a class="btn btn-csv" href="/download/imported/csv">CSV</a>
             <a class="btn btn-excel" href="/download/imported/excel">Excel</a>
             <button class="btn btn-danger" onclick="clearImported()">Clear</button>
         </div>
+    </div>
+    <div class="import-msg" id="pipeline-msg" style="margin-bottom:12px;"></div>
+
+    <!-- PIPELINE PROGRESS TRACKER -->
+    <div class="pipeline-card" id="pipeline-tracker" style="display:none;">
+        <h3>&#x1F504; Pipeline Progress</h3>
+        <p id="pipeline-status-text">Preparing pipeline...</p>
+        <div class="pipeline-status-bar"><div class="pipeline-status-fill" id="pipeline-fill" style="width:0%;"></div></div>
+        <div class="pipeline-steps" id="pipeline-steps">
+            <div class="pipeline-step" data-tool="tool3"><span class="step-num">3</span>Ads</div>
+            <div class="pipeline-step" data-tool="tool4"><span class="step-num">4</span>Website</div>
+            <div class="pipeline-step" data-tool="tool5"><span class="step-num">5</span>Contacts</div>
+            <div class="pipeline-step" data-tool="tool6"><span class="step-num">6</span>GBP</div>
+            <div class="pipeline-step" data-tool="tool7"><span class="step-num">7</span>Competitor</div>
+            <div class="pipeline-step" data-tool="tool8"><span class="step-num">8</span>Value</div>
+            <div class="pipeline-step" data-tool="tool9"><span class="step-num">9</span>Emails</div>
+            <div class="pipeline-step" data-tool="tool10"><span class="step-num">10</span>PDF</div>
+        </div>
+        <div class="pipeline-msg-box" id="pipeline-result" style="display:none;"></div>
     </div>
     <div class="dl-filters">
         <span class="dl-filters-label">Download Filtered</span>
@@ -334,6 +375,141 @@
         document.querySelectorAll('#import-table tbody tr').forEach(function(row) {
             row.style.display = (label === 'all' || row.getAttribute('data-label') === label) ? '' : 'none';
         });
+    }
+
+    /* ===== PUSH TO PIPELINE (push only, no auto-run) ===== */
+    function pushToPipeline() {
+        if (!confirm('This will push your imported leads into the pipeline data (Tools 3–10) without running them. Continue?')) return;
+        var btn = document.getElementById('btn-push-pipeline');
+        var msgEl = document.getElementById('pipeline-msg');
+        btn.disabled = true;
+        btn.innerHTML = '&#x23F3; Pushing...';
+        msgEl.style.display = 'none';
+
+        fetch('/import-leads/push-to-pipeline', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            btn.disabled = false;
+            btn.innerHTML = '&#x2699; Push Only';
+            if (data.status === 'error') {
+                showMsg('pipeline-msg', data.msg, 'error');
+            } else {
+                showMsg('pipeline-msg', data.msg, 'success');
+            }
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.innerHTML = '&#x2699; Push Only';
+            showMsg('pipeline-msg', 'Failed to push to pipeline.', 'error');
+        });
+    }
+
+    /* ===== RUN FULL PIPELINE ===== */
+    var pipelinePoller = null;
+    var pipelineTools = ['tool3','tool4','tool5','tool6','tool7','tool8','tool9','tool10'];
+
+    function runFullPipeline() {
+        if (!confirm('This will run the FULL pipeline (Ads Checker → Website Checker → Contact Finder → GBP Analyser → Competitor Intel → Value Calculator → Email Personaliser → PDF Generator) on your imported leads. This may take several minutes. Continue?')) return;
+
+        var btn = document.getElementById('btn-run-pipeline');
+        btn.disabled = true;
+        btn.innerHTML = '&#x23F3; Running...';
+        document.getElementById('btn-push-pipeline').disabled = true;
+        hideMsg('pipeline-msg');
+
+        // Show progress tracker
+        var tracker = document.getElementById('pipeline-tracker');
+        tracker.style.display = 'block';
+        document.getElementById('pipeline-fill').style.width = '0%';
+        document.getElementById('pipeline-status-text').textContent = 'Starting pipeline...';
+        document.getElementById('pipeline-result').style.display = 'none';
+        // Reset step states
+        document.querySelectorAll('#pipeline-steps .pipeline-step').forEach(function(el) {
+            el.className = 'pipeline-step';
+        });
+
+        fetch('/import-leads/run-pipeline', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'error' || data.status === 'running') {
+                btn.disabled = false;
+                btn.innerHTML = '&#x1F680; Run Full Pipeline';
+                document.getElementById('btn-push-pipeline').disabled = false;
+                showMsg('pipeline-msg', data.msg, 'error');
+                tracker.style.display = 'none';
+                return;
+            }
+            // Start polling
+            startPipelinePolling();
+        })
+        .catch(function() {
+            btn.disabled = false;
+            btn.innerHTML = '&#x1F680; Run Full Pipeline';
+            document.getElementById('btn-push-pipeline').disabled = false;
+            showMsg('pipeline-msg', 'Failed to start pipeline.', 'error');
+        });
+    }
+
+    function startPipelinePolling() {
+        if (pipelinePoller) clearInterval(pipelinePoller);
+        pipelinePoller = setInterval(pollPipelineStatus, 2000);
+        pollPipelineStatus(); // immediate first call
+    }
+
+    function pollPipelineStatus() {
+        fetch('/status')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            var pipelineState = data.pipeline || 'idle';
+            var pipelineMsg = data.pipeline_msg || '';
+
+            // Update status text
+            document.getElementById('pipeline-status-text').textContent = pipelineMsg;
+
+            // Update step indicators
+            var completedCount = 0;
+            pipelineTools.forEach(function(tool) {
+                var step = document.querySelector('.pipeline-step[data-tool="' + tool + '"]');
+                if (!step) return;
+                var toolState = data[tool] || 'idle';
+                step.className = 'pipeline-step';
+                if (toolState === 'done') {
+                    step.classList.add('done');
+                    completedCount++;
+                } else if (toolState === 'running') {
+                    step.classList.add('active');
+                } else if (toolState === 'error') {
+                    step.classList.add('error');
+                    completedCount++;
+                }
+            });
+
+            // Update progress bar
+            var pct = Math.round((completedCount / pipelineTools.length) * 100);
+            document.getElementById('pipeline-fill').style.width = pct + '%';
+
+            // Pipeline finished
+            if (pipelineState === 'done' || pipelineState === 'error' || pipelineState === 'idle') {
+                if (pipelineState === 'done' || (pipelineState === 'idle' && completedCount > 0)) {
+                    clearInterval(pipelinePoller);
+                    pipelinePoller = null;
+                    document.getElementById('pipeline-fill').style.width = '100%';
+
+                    var btn = document.getElementById('btn-run-pipeline');
+                    btn.disabled = false;
+                    btn.innerHTML = '&#x1F680; Run Full Pipeline';
+                    document.getElementById('btn-push-pipeline').disabled = false;
+
+                    var resultBox = document.getElementById('pipeline-result');
+                    resultBox.style.display = 'block';
+                    resultBox.textContent = pipelineMsg;
+                    resultBox.style.background = 'rgba(34,197,94,0.1)';
+                    resultBox.style.color = '#86efac';
+                    resultBox.style.border = '1px solid rgba(34,197,94,0.3)';
+                }
+            }
+        })
+        .catch(function() { /* ignore polling errors */ });
     }
 
     /* ===== CLEAR ===== */
