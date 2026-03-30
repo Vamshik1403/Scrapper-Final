@@ -872,7 +872,7 @@
                         <td>{{ loop.index }}</td>
                         <td>{{ row.business_name or '---' }}</td>
                         <td>{{ row.phone or '---' }}</td>
-                        <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                        <td>{% if row.website %}<a href="{{ row.website if row.website.startswith('http') else '//' ~ row.website }}" target="_blank" rel="noopener">Link</a>{% else %}---{% endif %}</td>
                         <td>{{ row.address or '---' }}</td>
                         <td>{{ row.rating or '---' }}</td>
                         <td>{{ row.review_count if row.review_count == row.review_count else '---' }}</td>
@@ -930,7 +930,7 @@
                         <td>{{ loop.index }}</td>
                         <td>{{ row.business_name or '---' }}</td>
                         <td>{{ row.phone or '---' }}</td>
-                        <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                        <td>{% if row.website %}<a href="{{ row.website if row.website.startswith('http') else '//' ~ row.website }}" target="_blank" rel="noopener">Link</a>{% else %}---{% endif %}</td>
                         <td>{{ row.address or '---' }}</td>
                         <td>{{ row.rating or '---' }}</td>
                         <td>{{ row.review_count if row.review_count == row.review_count else '---' }}</td>
@@ -990,7 +990,7 @@
                         <td>{{ loop.index }}</td>
                         <td>{{ row.business_name or '---' }}</td>
                         <td>{{ row.phone or '---' }}</td>
-                        <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                        <td>{% if row.website %}<a href="{{ row.website if row.website.startswith('http') else '//' ~ row.website }}" target="_blank" rel="noopener">Link</a>{% else %}---{% endif %}</td>
                         <td>{{ row.city or '---' }}</td>
                         <td>{{ row.review_count if row.review_count == row.review_count else '---' }}</td>
                         <td><span class="label label-{{ row.prospect_label }}">{{ row.prospect_label }}</span></td>
@@ -1123,7 +1123,7 @@
                         <td><span class="label email-{{ row.email_status if row.email_status else 'UNKNOWN' }}">{{ row.email_status if row.email_status else 'UNKNOWN' }}</span></td>
                         <td>{{ row.direct_phone or '---' }}</td>
                         <td>{{ row.phone or '---' }}</td>
-                        <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                        <td>{% if row.website %}<a href="{{ row.website if row.website.startswith('http') else '//' ~ row.website }}" target="_blank" rel="noopener">Link</a>{% else %}---{% endif %}</td>
                         <td>{{ row.city or '---' }}</td>
                         <td>{% if row.website_quality %}<span class="label quality-{{ row.website_quality }}">{{ row.website_quality }}</span>{% else %}---{% endif %}</td>
                     </tr>{% endfor %}</tbody>

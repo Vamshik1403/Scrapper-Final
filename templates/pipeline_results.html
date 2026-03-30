@@ -81,7 +81,7 @@
             <thead><tr><th>#</th><th>Business</th><th>Phone</th><th>Website</th><th>City</th><th>Rating</th><th>Reviews</th><th>Score</th><th>Label</th></tr></thead>
             <tbody>{% for r in scored_data %}<tr>
                 <td>{{ loop.index }}</td><td>{{ r.business_name or '---' }}</td><td>{{ r.phone or '---' }}</td>
-                <td>{% if r.website %}<a href="{{ r.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                <td>{% if r.website %}<a href="{{ r.website if r.website.startswith('http') else '//' ~ r.website }}" target="_blank" rel="noopener">Link</a>{% else %}---{% endif %}</td>
                 <td>{{ r.city or '---' }}</td><td>{{ r.rating or '---' }}</td><td>{{ r.review_count|int if r.review_count else '---' }}</td>
                 <td>{{ r.review_score }}</td><td><span class="label label-{{ r.prospect_label }}">{{ r.prospect_label }}</span></td>
             </tr>{% endfor %}</tbody>

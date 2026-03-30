@@ -28,7 +28,7 @@
                 <td>{{ loop.index }}</td>
                 <td>{{ row.business_name or '---' }}</td>
                 <td>{{ row.phone or '---' }}</td>
-                <td>{% if row.website %}<a href="{{ row.website }}" target="_blank">Link</a>{% else %}---{% endif %}</td>
+                <td>{% if row.website %}<a href="{{ row.website if row.website.startswith('http') else '//' ~ row.website }}" target="_blank" rel="noopener">Link</a>{% else %}---{% endif %}</td>
                 <td>{{ row.address or '---' }}</td>
                 <td>{{ row.rating or '---' }}</td>
                 <td>{{ row.review_count|int if row.review_count else '---' }}</td>

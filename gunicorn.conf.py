@@ -6,9 +6,11 @@ import os
 # Bind
 bind = f"0.0.0.0:{os.environ.get('PORT', '5000')}"
 
-# Workers (2 × CPU cores + 1)
-workers = int(os.environ.get("WEB_WORKERS", 2))
-threads = 2
+# Workers — MUST be 1 because background threads (pipeline, outreach)
+# store status in in-memory dicts. Multiple workers = separate memory = lost status.
+# Use threads to handle concurrent requests instead.
+workers = 1
+threads = 4
 
 # Timeout (long for tool runs)
 timeout = 300
